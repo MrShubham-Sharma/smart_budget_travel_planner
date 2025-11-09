@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard - TripWise - Smart Travel Planner</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+  <style>
+    .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.6); justify-content: center; align-items:center; z-index:1000; }
+    .modal-content { background:#fff; padding:20px; border-radius:15px; max-width:800px; width:95%; max-height:90%; overflow-y:auto; position: relative; box-shadow:0 4px 20px rgba(0,0,0,0.3);}
+    #tripPlannerModal ul { list-style:none; padding:0; margin:0; background:#fff; border:1px solid #ccc; max-height:150px; overflow-y:auto; position:absolute; z-index:10; width:calc(100% - 20px); }
+    #tripPlannerModal ul li { padding:8px; cursor:pointer; }
+    #tripPlannerModal ul li:hover { background:#eee; }
+    input { width:100%; padding:8px 10px; margin:5px 0 10px; border-radius:6px; border:1px solid #ccc; font-size:14px; }
+    button { padding:10px 20px; margin:5px; border:none; border-radius:8px; background:#1d72b8; color:#fff; cursor:pointer; font-weight:600; }
+    button:hover { background:#155a8a; }
+    label { font-weight:600; margin-top:10px; display:block; }
+  </style>
+</head>
+<body class="dashboard">
+
+<!-- Top Navigation Panel -->
+<nav class="top-nav">
+  <div class="nav-logo">
+    <img src="https://cdn-icons-png.flaticon.com/512/744/744502.png" alt="Logo">
+    <h1>TripWise - Smart Travel Planner</h1>
+  </div>
+  <ul>
+    <li><a href="#" onclick="openMyTripsModal()">My Trips</a></li>
+    <li><a href="#">Recommended Places</a></li>
+    <li><a href="#">Budget Planner</a></li>
+    <li><a href="{{ url_for('logout') }}" class="logout-btn">Logout</a></li>
+  </ul>
+</nav>
+
+<!-- Dashboard Content -->
+<div class="dashboard-content">
+  <h2>Welcome Back, {{ user_name }}!</h2>
+  <p>Explore your trips and plan new adventures with smart recommendations.</p>
+
+  <div class="cards">
+    <!-- Plan Trip -->
+    <div class="card option-card" id="planTripCard" onclick="openTripPlanner()">
+      <div class="card-bg" style="background: url('https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=500&q=80') center/cover no-repeat;"></div>
+      <div class="card-content">
+        <img src="https://cdn-icons-png.flaticon.com/512/684/684908.png" alt="Plan Trip">
+        <h3>Plan Trip</h3>
+        <p>Enter destination, budget, and duration to get a smart travel plan.</p>
+      </div>
+    </div>
+
+    <!-- Budget Tracker -->
+    <div class="card option-card">
+      <div class="card-bg" style="background: url('https://images.unsplash.com/photo-1567427017947-545c5f8d16ad?auto=format&fit=crop&w=500&q=80') center/cover no-repeat;"></div>
+      <div class="card-content">
+        <img src="https://cdn-icons-png.flaticon.com/512/2331/2331970.png" alt="Budget Tracker">
+        <h3>Budget Tracker</h3>
+        <p>Track expenses and save smartly while traveling.</p>
+      </div>
+    </div>
+
+    <!-- Nearby Attractions -->
+    <div class="card option-card">
+      <div class="card-bg" style="background: url('https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=500&q=80') center/cover no-repeat;"></div>
+      <div class="card-content">
+        <img src="https://cdn-icons-png.flaticon.com/512/252/252025.png" alt="Nearby Attractions">
+        <h3>Nearby Attractions</h3>
+        <p>Get real-time recommendations for popular places near your destination.</p>
+      </div>
+    </div>
+
+    <!-- Live Tracker -->
+    <div class="card option-card">
+      <div class="card-bg" style="background: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=500&q=80') center/cover no-repeat;"></div>
+      <div class="card-content">
+        <img src="https://cdn-icons-png.flaticon.com/512/854/854878.png" alt="Live Tracker">
+        <h3>Live Tracker</h3>
+        <p>Track your real-time location and route progress easily.</p>
+      </div>
+    </div>
+
+    <!-- Travel Tips -->
+    <div class="card option-card">
+      <div class="card-bg" style="background: url('https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=500&q=80') center/cover no-repeat;"></div>
+      <div class="card-content">
+        <img src="https://cdn-icons-png.flaticon.com/512/1029/1029183.png" alt="Travel Tips">
+        <h3>Travel Tips</h3>
+        <p>Get safety advice and best tips for smooth travel experiences.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Trip Planner Modal -->
+<div id="tripPlannerModal" class="modal">
+  <div class="modal-content" style="
+        background: #1e1e1e; /* dark background for the modal box */
+        color: #f0f0f0;      /* light text */
+        border-radius: 15px;
+        max-width: 800px;
+        width: 95%;
+        max-height: 90%;
+        overflow-y: auto;
+        padding: 20px;
+        box-shadow: 0 4px 25px rgba(0,0,0,0.8);
+      ">
+    
+    <h2 style="text-align:center; color:#f0a500;">Plan Your Trip</h2>
+
+    <label>Start Location:</label>
+    <input type="text" id="start_location" placeholder="Enter starting point" class="dark-input">
+    <ul id="start_suggestions" class="dark-suggestions"></ul>
+
+    <label>Destination:</label>
+    <input type="text" id="destination" placeholder="Enter destination" class="dark-input">
+    <ul id="dest_suggestions" class="dark-suggestions"></ul>
+
+    <input type="hidden" id="start_lat" />
+    <input type="hidden" id="start_lon" />
+    <input type="hidden" id="latitude" />
+    <input type="hidden" id="longitude" />
+
+    <label>Trip Name:</label>
+    <input type="text" id="trip_name" class="dark-input">
+    <label>Budget:</label>
+    <input type="number" id="budget" class="dark-input">
+
+    <div style="text-align:center; margin-top:15px;">
+      <button onclick="addTrip()" class="dark-btn">Add Trip</button>
+      <button onclick="closeTripPlanner()" class="dark-btn close-btn">Close</button>
+    </div>
+
+    <div id="map" style="height:400px; margin-top:15px; border-radius:10px;"></div>
+  </div>
+</div>
+
+<style>
+/* Modal background */
+#tripPlannerModal .modal-content {
+    background: url('https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=800&q=80') no-repeat center center;
+    background-size: cover;
+    color: #fff;
+    padding: 20px;
+    border-radius: 15px;
+    max-width: 800px;
+    width: 95%;
+    max-height: 90%;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+    position: relative;
+}
+
+/* Overlay for readability */
+#tripPlannerModal::before {
+    content: "";
+    position: absolute;
+    top:0; left:0;
+    width:100%; height:100%;
+    background: rgba(0,0,0,0.6); /* dark overlay */
+    border-radius: 15px;
+    z-index:0;
+}
+
+/* Ensure all content appears above overlay */
+#tripPlannerModal .modal-content > * {
+    position: relative;
+    z-index:1;
+}
+
+/* Suggestion lists */
+#tripPlannerModal ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 180px;
+    overflow-y: auto;
+    position: absolute;
+    z-index: 1002;
+    width: calc(100% - 20px);
+    background: rgba(0,0,0,0.9); /* darker background */
+    color: #fff; /* white text */
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.3);
+}
+
+/* Suggestion items */
+#tripPlannerModal ul li {
+    padding: 8px;
+    cursor: pointer;
+}
+
+/* Hover effect */
+#tripPlannerModal ul li:hover {
+    background: rgba(255,255,255,0.2);
+    color: #fff;
+}
+
+/* Inputs styling to stand out */
+#tripPlannerModal input {
+    background: rgba(0,0,0,0.6);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.3);
+}
+#tripPlannerModal input::placeholder {
+    color: rgba(255,255,255,0.7);
+}
+
+/* Buttons */
+#tripPlannerModal button {
+    background: #1d72b8;
+    color: #fff;
+    border-radius: 8px;
+    padding: 10px 20px;
+    margin: 5px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+}
+#tripPlannerModal button:hover {
+    background: #155a8a;
+}
+</style>
+<!-- My Trips Modal -->
+<div id="myTripsModal" class="modal">
+  <div class="modal-content" style="
+        background: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80') no-repeat center center;
+        background-size: cover;
+        color: #fff;
+        border-radius: 15px;
+        max-width:900px;
+        width:95%;
+        max-height:90%;
+        overflow-y:auto;
+        padding:20px;
+        position:relative;
+        box-shadow:0 4px 25px rgba(0,0,0,0.8);
+      ">
+    
+    <!-- Overlay for readability -->
+    <div style="
+          position:absolute;
+          top:0; left:0;
+          width:100%; height:100%;
+          background: rgba(0,0,0,0.6);
+          border-radius:15px;
+          z-index:0;
+        "></div>
+
+    <!-- Content above overlay -->
+    <div style="position:relative; z-index:1;">
+      <h2 style="text-align:center; color:#f0a500;">My Trips</h2>
+
+      <div style="display:flex; gap:20px; align-items:flex-start;">
+        <!-- Left: list -->
+        <div style="flex:1; min-width:260px;">
+          <ul id="myTripsList" style="list-style:none; padding:0; margin:0;"></ul>
+        </div>
+
+        <!-- Right: map & edit form -->
+        <div style="flex:2;">
+          <div id="myTripsMap" style="height:320px; border-radius:8px; margin-bottom:10px;"></div>
+
+          <div id="editTripContainer" style="display:none; background:rgba(255,255,255,0.03); padding:10px; border-radius:8px;">
+            <h3>Edit Trip</h3>
+            <input type="hidden" id="edit_trip_id" />
+            <label>Trip Name</label>
+            <input type="text" id="edit_trip_name" />
+            <label>Destination</label>
+            <input type="text" id="edit_destination" />
+            <label>Budget</label>
+            <input type="number" id="edit_budget" />
+            <label>Latitude</label>
+            <input type="text" id="edit_latitude" />
+            <label>Longitude</label>
+            <input type="text" id="edit_longitude" />
+            <div style="margin-top:10px;">
+              <button onclick="saveTripEdits()">Save</button>
+              <button onclick="closeEditPanel()">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="text-align:center; margin-top:12px;">
+        <button onclick="closeMyTripsModal()">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="editTripContainer" style="display:none; background:rgba(255,255,255,0.03); padding:10px; border-radius:8px;">
+  <h3>Edit Trip</h3>
+  <input type="hidden" id="edit_trip_id" />
+  <label>Trip Name</label>
+  <input type="text" id="edit_trip_name" />
+  <label>Destination</label>
+  <input type="text" id="edit_destination" />
+  <label>Budget</label>
+  <input type="number" id="edit_budget" />
+  <label>Latitude</label>
+  <input type="text" id="edit_latitude" />
+  <label>Longitude</label>
+  <input type="text" id="edit_longitude" />
+  <div style="margin-top:10px;">
+    <button onclick="saveTripEdits()">Save</button>
+    <button onclick="closeEditPanel()">Cancel</button>
+    <button onclick="deleteTrip()" style="background:#d9534f;">Delete</button>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

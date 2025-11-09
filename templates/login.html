@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Login - Smart Travel Planner</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/js/all.min.js"></script>
+</head>
+<body class="login-page">
+
+<!-- Background overlay -->
+<div class="overlay" style="background: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1350&q=80') center/cover no-repeat;">
+  <div class="login-container">
+      <!-- Left Panel -->
+      <div class="left-panel" style="background: url('https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?auto=format&fit=crop&w=600&q=80') center/cover no-repeat; background-size: cover;">
+          <div class="panel-pattern">
+              <img src="https://cdn-icons-png.flaticon.com/512/685/685963.png" alt="airplane" class="icon-pattern">
+              <img src="https://cdn-icons-png.flaticon.com/512/2331/2331970.png" alt="budget" class="icon-pattern">
+              <img src="https://cdn-icons-png.flaticon.com/512/252/252025.png" alt="map" class="icon-pattern">
+          </div>
+          <div class="overlay-text">
+              <h1>Discover Your Next Adventure</h1>
+              <p>Plan budget-friendly trips, explore top destinations, and travel smartly.</p>
+          </div>
+      </div>
+
+      <!-- Right Panel -->
+      <div class="right-panel">
+          <h2>Login</h2>
+          <p id="message" style="color:red;"></p>
+          <form id="loginForm">
+              <div class="input-group">
+                  <i class="fas fa-envelope"></i>
+                  <input type="email" id="email" placeholder="Email" required>
+              </div>
+              <div class="input-group">
+                  <i class="fas fa-lock"></i>
+                  <input type="password" id="password" placeholder="Password" required>
+              </div>
+              <button type="submit">Login</button>
+          </form>
+          <p class="switch">Don't have an account? <a href="/signup-page">Sign Up</a></p>
+      </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
