@@ -1,103 +1,135 @@
-/* ----------------- GENERAL ----------------- */
-body, html {
+/* ---------------------------------
+ * 🎨 GLOBAL STYLES & VARIABLES
+ * --------------------------------- */
+:root {
+  /* Colors */
+  --color-primary: #00c6ff;
+  --color-accent-1: #2575fc;
+  --color-accent-2: #6a11cb;
+  --color-logout-1: #ff416c;
+  --color-logout-2: #ff4b2b;
+  --color-modal-accent: #1d72b8;
+  --color-text-light: #fff;
+  --color-text-dark: #333;
+  --color-text-placeholder: rgba(255, 255, 255, 0.7);
+  --color-text-shadow: rgba(0, 0, 0, 0.5);
+
+  /* Gradients */
+  --gradient-button: linear-gradient(90deg, var(--color-accent-1), var(--color-accent-2));
+  --gradient-logout: linear-gradient(90deg, var(--color-logout-1), var(--color-logout-2));
+  --gradient-overlay: linear-gradient(180deg, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.7));
+
+  /* Backgrounds */
+  --bg-glass-1: rgba(255, 255, 255, 0.1);
+  --bg-glass-2: rgba(255, 255, 255, 0.15);
+  --bg-glass-3: rgba(255, 255, 255, 0.18);
+  --bg-input: rgba(255, 255, 255, 0.12);
+
+  /* Sizing & Radius */
+  --border-radius-main: 20px;
+  --border-radius-input: 12px;
+  --shadow-main: 0 15px 50px rgba(0, 0, 0, 0.7);
+  --shadow-hover: 0 20px 60px rgba(0,0,0,0.8);
+}
+
+/* -----------------
+ * 1. GLOBAL RESET
+ * ----------------- */
+*,
+*::before,
+*::after {
   margin: 0;
   padding: 0;
+  box-sizing: border-box;
+}
+
+body,
+html {
   height: 100%;
   font-family: 'Poppins', sans-serif;
-  color: #fff;
+  color: var(--color-text-light);
+  overflow-x: hidden; /* Prevent horizontal scroll */
 }
 
-/* ----------------- FULL PAGE BACKGROUND ----------------- */
-body.login-page {
-  background: url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1350&q=80') no-repeat center center fixed;
+/* ---------------------------------
+ * 2. AUTH PAGES (Login & Signup)
+ * --------------------------------- */
+
+/* 🔹 Page-specific Backgrounds */
+.login-page {
+  background: url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1350&q=80')
+    no-repeat center center fixed;
   background-size: cover;
 }
 
-body.signup-page {
-  background: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1350&q=80') no-repeat center center fixed;
+.signup-page {
+  background: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1350&q=80')
+    no-repeat center center fixed;
   background-size: cover;
 }
 
-/* ----------------- OVERLAY ----------------- */
+/* 🔹 Auth Overlay */
 .overlay {
   width: 100%;
-  height: 100vh;
+  min-height: 100vh; /* Use min-height to allow content to grow */
   display: flex;
   justify-content: center;
   align-items: center;
   backdrop-filter: brightness(0.7);
   animation: fadeIn 0.8s ease-in;
+  padding: 20px 0; /* Add padding for smaller screens */
 }
 
-/* ----------------- CONTAINER ----------------- */
-.login-container,
-.signup-container {
+/* 🔹 Auth Container (Combined .login-container & .signup-container) */
+.auth-container {
   display: flex;
   width: 900px;
   max-width: 95%;
   min-height: 500px;
-  border-radius: 20px;
+  border-radius: var(--border-radius-main);
   overflow: hidden;
-  background: rgba(255,255,255,0.1);
+  background: var(--bg-glass-1);
   backdrop-filter: blur(15px);
-  box-shadow: 0 15px 50px rgba(0,0,0,0.7);
+  box-shadow: var(--shadow-main);
   transition: all 0.3s ease;
 }
 
-/* ----------------- LEFT PANEL ----------------- */
+/* 🔹 Left Panel (Info) */
 .left-panel {
   flex: 1;
   position: relative;
-  border-radius: 20px 0 0 20px;
   display: flex;
   justify-content: center;
   align-items: center;
   text-align: center;
   overflow: hidden;
+  padding: 40px; /* Add padding */
 }
 
 .left-panel::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(0,0,0,0.4), rgba(0,0,0,0.7));
+  background: var(--gradient-overlay);
 }
 
-.panel-pattern {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
-  justify-content: center;
-  align-items: center;
-  opacity: 0.15;
-}
-
-.icon-pattern {
-  width: 40px;
-  height: 40px;
-}
-
-/* ----------------- LEFT PANEL TEXT ----------------- */
 .overlay-text {
   position: relative;
   z-index: 1;
-  color: #fff;
 }
 
 .overlay-text h1 {
   font-size: 32px;
   margin-bottom: 10px;
-  text-shadow: 2px 2px 15px rgba(0,0,0,0.7);
+  text-shadow: 2px 2px 15px var(--color-text-shadow);
 }
 
 .overlay-text p {
   font-size: 16px;
-  text-shadow: 1px 1px 10px rgba(0,0,0,0.6);
+  text-shadow: 1px 1px 10px var(--color-text-shadow);
 }
 
-/* ----------------- RIGHT PANEL ----------------- */
+/* 🔹 Right Panel (Form) */
 .right-panel {
   flex: 1;
   display: flex;
@@ -105,83 +137,32 @@ body.signup-page {
   justify-content: center;
   align-items: center;
   padding: 40px;
-  border-radius: 0 20px 20px 0;
-  background: rgba(255,255,255,0.15);
+  background: var(--bg-glass-2);
   backdrop-filter: blur(15px);
-  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  box-shadow: 0 10px 40px var(--color-text-shadow);
   transition: all 0.3s ease;
 }
 
 .right-panel:hover {
-  box-shadow: 0 15px 50px rgba(0,0,0,0.7);
+  box-shadow: var(--shadow-hover);
 }
 
 .right-panel h2 {
   margin-bottom: 25px;
   font-size: 28px;
-  text-shadow: 1px 1px 10px rgba(0,0,0,0.5);
+  text-shadow: 1px 1px 10px var(--color-text-shadow);
 }
 
-/* ----------------- INPUT GROUP ----------------- */
-.input-group {
-  position: relative;
-  width: 100%;
-  margin-bottom: 20px;
+.right-panel form {
+    width: 100%;
 }
 
-.input-group i {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  color: #00c6ff;
-}
-
-.input-group input {
-  width: 100%;
-  padding: 12px 12px 12px 40px;
-  border-radius: 12px;
-  border: none;
-  outline: none;
-  font-size: 16px;
-  background: rgba(255,255,255,0.12);
-  color: #fff;
-  transition: 0.3s;
-}
-
-.input-group input::placeholder {
-  color: rgba(255,255,255,0.7);
-}
-
-.input-group input:focus {
-  box-shadow: 0 0 15px #00c6ff;
-  background: rgba(255,255,255,0.18);
-}
-
-/* ----------------- BUTTON ----------------- */
-button {
-  width: 100%;
-  padding: 12px;
-  border-radius: 12px;
-  border: none;
-  background: linear-gradient(90deg,#2575fc,#6a11cb);
-  color: #fff;
-  font-size: 16px;
-  cursor: pointer;
-  transition: 0.3s;
-}
-
-button:hover {
-  transform: scale(1.05);
-  box-shadow: 0 5px 20px rgba(37,117,252,0.5);
-}
-
-/* ----------------- SWITCH LINK ----------------- */
 .switch {
   margin-top: 20px;
 }
 
 .switch a {
-  color: #00c6ff;
+  color: var(--color-primary);
   text-decoration: none;
   font-weight: 500;
 }
@@ -190,20 +171,30 @@ button:hover {
   text-decoration: underline;
 }
 
-/* ----------------- ANIMATION ----------------- */
-@keyframes fadeIn {
-  0% {opacity: 0; transform: translateY(20px);}
-  100% {opacity: 1; transform: translateY(0);}
+.form-message {
+    margin-top: 15px;
+    font-size: 14px;
+    text-align: center;
+}
+.form-message.success {
+    color: #49d861;
+}
+.form-message.error {
+    color: #ff4d62;
 }
 
-/* ----------------- DASHBOARD ----------------- */
+/* ---------------------------------
+ * 3. DASHBOARD PAGE
+ * --------------------------------- */
+.dashboard {
+  background: url('https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1350&q=80')
+    no-repeat center center fixed;
+  background-size: cover;
+}
 
-/* 🔹 Enhanced Navbar Styling */
+/* 🔹 Dashboard Navbar */
 .dashboard .top-nav {
-  background: linear-gradient(
-      rgba(0, 0, 0, 0.6),
-      rgba(0, 0, 0, 0.6)
-    ),
+  background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)),
     url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1350&q=80')
       no-repeat center center;
   background-size: cover;
@@ -220,11 +211,6 @@ button:hover {
   animation: slideDown 0.8s ease-in;
 }
 
-body.dashboard {
-  background: url('https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1350&q=80') no-repeat center center fixed;
-  background-size: cover;
-}
-
 .nav-logo {
   display: flex;
   align-items: center;
@@ -234,12 +220,12 @@ body.dashboard {
 .nav-logo img {
   width: 45px;
   height: 45px;
-  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.5));
+  filter: drop-shadow(0 2px 5px var(--color-text-shadow));
 }
 
 .top-nav h1 {
   font-size: 26px;
-  color: #fff;
+  color: var(--color-text-light);
   font-weight: 600;
   letter-spacing: 1px;
   text-shadow: 2px 2px 10px rgba(0, 0, 0, 0.8);
@@ -252,7 +238,7 @@ body.dashboard {
 }
 
 .top-nav ul li a {
-  color: #fff;
+  color: var(--color-text-light);
   text-decoration: none;
   padding: 10px 18px;
   border-radius: 10px;
@@ -269,7 +255,7 @@ body.dashboard {
   transform: translateX(-50%);
   width: 0%;
   height: 2px;
-  background: #00c6ff;
+  background: var(--color-primary);
   transition: width 0.3s ease;
 }
 
@@ -278,31 +264,96 @@ body.dashboard {
 }
 
 .top-nav ul li a:hover {
-  color: #00c6ff;
-  background: rgba(255, 255, 255, 0.15);
+  color: var(--color-primary);
+  background: var(--bg-glass-2);
+  transform: translateY(-2px); /* ENHANCED */
 }
 
-/* Logout button highlight */
 .logout-btn {
-  background: linear-gradient(90deg, #ff416c, #ff4b2b);
-  color: #fff !important;
+  background: var(--gradient-logout);
+  color: var(--color-text-light) !important;
   font-weight: 600;
   box-shadow: 0 4px 10px rgba(255, 65, 108, 0.3);
+  background-size: 200% auto; /* ENHANCED */
+  transition: 0.5s; /* ENHANCED */
 }
 
 .logout-btn:hover {
   transform: scale(1.05);
   box-shadow: 0 4px 15px rgba(255, 65, 108, 0.5);
+  background-position: right center; /* ENHANCED */
 }
 
-/* Dashboard content */
+/* 🔹 Dashboard Content */
 .dashboard-content {
   padding: 40px;
   text-align: center;
   animation: fadeIn 1s ease-in;
 }
 
-/* Card layout */
+/* ---------------------------------
+ * 4. COMPONENTS (Forms, Buttons, Cards)
+ * --------------------------------- */
+
+/* 🔹 Input Group */
+.input-group {
+  position: relative;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.input-group i {
+  position: absolute;
+  top: 14px; /* Centered */
+  left: 12px;
+  color: var(--color-primary);
+  z-index: 1; /* Ensure icon is above input */
+  font-size: 14px;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 12px 12px 12px 40px;
+  border-radius: var(--border-radius-input);
+  border: none;
+  outline: none;
+  font-size: 16px;
+  background: var(--bg-input);
+  color: var(--color-text-light);
+  transition: 0.3s;
+}
+
+.input-group input::placeholder {
+  color: var(--color-text-placeholder);
+}
+
+.input-group input:focus {
+  box-shadow: 0 0 15px var(--color-primary);
+  background: var(--bg-glass-3);
+}
+
+/* 🔹 Standard Button */
+button {
+  width: 100%;
+  padding: 12px;
+  border-radius: var(--border-radius-input);
+  border: none;
+  background: var(--gradient-button);
+  color: var(--color-text-light);
+  font-size: 16px;
+  cursor: pointer;
+  font-weight: 500;
+  background-size: 200% auto; /* ENHANCED */
+  transition: 0.5s; /* ENHANCED */
+}
+
+button:hover {
+  background-position: right center; /* ENHANCED */
+  transform: scale(1.03); /* ENHANCED */
+  box-shadow: 0 5px 20px rgba(37, 117, 252, 0.5);
+}
+
+/* 🔹 Card Layout */
 .cards {
   display: flex;
   gap: 30px;
@@ -311,51 +362,67 @@ body.dashboard {
   margin-top: 40px;
 }
 
-/* 🔹 Enhanced Cards */
 .card {
   position: relative;
   width: 250px;
   height: 300px;
-  border-radius: 20px;
+  border-radius: var(--border-radius-main);
   overflow: hidden;
   text-align: center;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  box-shadow: 0 5px 20px rgba(0,0,0,0.5);
-  background: rgba(255,255,255,0.05);
+  transition: transform 0.4s ease, box-shadow 0.4s ease; /* ENHANCED */
+  box-shadow: 0 5px 20px var(--color-text-shadow);
+  background: var(--bg-glass-1);
   backdrop-filter: blur(5px);
+  cursor: pointer;
 }
 
 .card-bg {
   position: absolute;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   z-index: 0;
   filter: brightness(0.55);
   transition: 0.4s ease;
+  background-size: cover;
+  background-position: center;
 }
 
 .card-content {
   position: relative;
   z-index: 1;
-  color: #fff;
+  color: var(--color-text-light);
   padding: 25px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
 }
 
 .card img {
   width: 65px;
+  height: 65px;
   margin-bottom: 15px;
-  filter: drop-shadow(0 3px 5px rgba(0,0,0,0.5));
+  filter: drop-shadow(0 3px 5px var(--color-text-shadow));
+  transition: transform 0.3s ease; /* ENHANCED */
 }
 
 .card h3 {
   font-size: 20px;
   margin-bottom: 10px;
   letter-spacing: 0.5px;
+  transition: transform 0.3s ease, color 0.3s ease; /* ENHANCED */
+}
+
+.card p {
+    font-size: 14px;
+    font-weight: 300;
 }
 
 .card:hover {
-  transform: translateY(-12px) scale(1.03);
-  box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+  transform: translateY(-10px) rotateX(5deg); /* ENHANCED 3D Lift */
+  box-shadow: var(--shadow-hover);
 }
 
 .card:hover .card-bg {
@@ -363,10 +430,351 @@ body.dashboard {
   transform: scale(1.05);
 }
 
-/* ----------------- ANIMATIONS ----------------- */
+/* ENHANCED Card hover content animations */
+.card:hover img {
+    transform: scale(1.1);
+}
+.card:hover h3 {
+    transform: scale(1.05);
+    color: var(--color-primary);
+}
+
+.card-active {
+  transform: translateY(-8px) scale(1.02);
+  transition: transform 0.25s;
+}
+
+/* ---------------------------------
+ * 5. MODAL (Trip Planner, Budget)
+ * --------------------------------- */
+.modal {
+  display: flex; /* Changed from none */
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(5px);
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px; /* Padding for small screens */
+  overflow-y: auto;
+  
+  /* ENHANCED: Animation */
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+/* ENHANCED: Show class for modal */
+.modal.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+.modal-content {
+  background: var(--bg-glass-1);
+  backdrop-filter: blur(20px);
+  border-radius: var(--border-radius-main);
+  width: 500px;
+  max-width: 95%;
+  padding: 30px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  color: var(--color-text-light);
+  text-align: left;
+  position: relative; /* For autocomplete positioning */
+  margin: auto; /* Center in viewport */
+  
+  /* ENHANCED: Animation */
+  transform: translateY(-20px);
+  transition: transform 0.3s ease;
+}
+
+.modal.show .modal-content {
+    transform: translateY(0);
+}
+
+.modal-content.wide {
+    width: 900px;
+}
+
+.modal-content h2 {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  color: var(--color-text-light);
+  text-align: center;
+  text-shadow: 1px 1px 5px var(--color-text-shadow);
+}
+
+.modal .close {
+  color: var(--color-text-light);
+  position: absolute;
+  top: 15px;
+  right: 20px;
+  font-size: 32px;
+  cursor: pointer;
+  font-weight: bold;
+  z-index: 10002;
+  transition: transform 0.2s;
+}
+.modal .close:hover {
+    transform: scale(1.1);
+    color: var(--color-primary);
+}
+
+/* 🔹 Modal Forms */
+.modal-content label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+.modal-content input {
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 15px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.3);
+  font-size: 15px;
+  color: var(--color-text-light);
+  background: var(--bg-input);
+  transition: all 0.2s;
+}
+/* Handle date input placeholders */
+.modal-content input[type="date"] {
+    color-scheme: dark;
+}
+
+.modal-content input:focus {
+  outline: none;
+  border-color: var(--color-modal-accent);
+  box-shadow: 0 0 8px rgba(29, 114, 184, 0.4);
+}
+
+/* 🔹 Modal Buttons */
+.modal-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+    justify-content: flex-end;
+}
+.modal-buttons.text-center {
+    justify-content: center;
+}
+
+.modal-content button {
+  padding: 10px 25px;
+  margin: 0;
+  border: none;
+  border-radius: 10px;
+  background: var(--color-modal-accent);
+  color: var(--color-text-light);
+  cursor: pointer;
+  font-weight: 600;
+  width: auto; /* Override global button width */
+  
+  /* ENHANCED: Match global button animation */
+  background-size: 200% auto;
+  transition: 0.5s;
+}
+
+.modal-content button:hover {
+  background-position: right center;
+  transform: none; /* Override global button hover */
+  box-shadow: none;
+}
+
+.modal-content button.btn-close {
+    background: #777;
+}
+.modal-content button.btn-close:hover {
+    background: #555;
+}
+
+/* 🔹 Budget Tracker Modal (ENHANCED) */
+#budgetTrackerModalContent button {
+  background: #4caf50;
+  width: auto;
+}
+#budgetTrackerModalContent button:hover {
+    background: #45a049;
+}
+#budgetTrackerModalContent ul {
+    list-style:none;
+    padding: 0;
+    max-height: 200px;
+    overflow-y: auto;
+}
+#budgetTrackerModalContent li {
+    background: rgba(0,0,0,0.2);
+    padding: 8px;
+    border-radius: 5px;
+    margin-bottom: 5px;
+}
+#budgetTrackerModalContent li i {
+    margin-right: 8px;
+    color: var(--color-primary);
+}
+#budgetTrackerModalContent p {
+    margin-top: 15px;
+    font-size: 1.1em;
+}
+.budget-summary {
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+    background: rgba(0,0,0,0.2);
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+.budget-summary div {
+    flex: 1;
+    text-align: center;
+}
+.budget-summary span {
+    display: block;
+    font-size: 14px;
+    margin-bottom: 5px;
+    opacity: 0.8;
+}
+.budget-summary strong {
+    font-size: 1.2em;
+    font-weight: 600;
+}
+.budget-summary strong.success {
+    color: #49d861;
+}
+.budget-summary strong.error {
+    color: #ff4d62;
+}
+
+/* 🔹 Autocomplete List (for Trip Planner) */
+#tripPlannerModal ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  background: #222;
+  color: var(--color-text-light); /* Text color for items */
+  border: 1px solid rgba(255,255,255,0.3);
+  max-height: 180px;
+  overflow-y: auto;
+  position: absolute;
+  z-index: 10001; /* Must be higher than modal content */
+  width: calc(100% - 60px); /* Match padding */
+  left: 30px;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  text-align: left; /* Align text left */
+}
+
+#tripPlannerModal ul li {
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+#tripPlannerModal ul li:hover {
+  background: var(--color-modal-accent);
+  color: var(--color-text-light);
+}
+
+#map, #myTripsMap {
+  height: 300px;
+  margin-top: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  z-index: 1; /* Ensure map is clickable */
+}
+
+/* 🔹 "My Trips" Modal Layout */
+.my-trips-layout {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+.my-trips-list-container {
+    flex: 1;
+    max-height: 400px;
+    overflow-y: auto;
+    background: rgba(0,0,0,0.2);
+    padding: 15px;
+    border-radius: 10px;
+}
+.my-trips-details {
+    flex: 2;
+}
+#myTripsMap {
+    height: 300px;
+    margin-top: 0;
+}
+#myTripsList {
+    list-style: none;
+    padding: 0;
+}
+#myTripsList li {
+    background: rgba(255,255,255,0.1);
+    padding: 10px 15px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+#myTripsList .trip-info {
+    cursor: pointer;
+    font-weight: 500;
+    flex-grow: 1;
+}
+#myTripsList .trip-info:hover {
+    color: var(--color-primary);
+}
+#myTripsList .trip-actions {
+    display: flex;
+    gap: 5px;
+    flex-shrink: 0;
+}
+#myTripsList .trip-actions button {
+    padding: 5px 8px;
+    font-size: 12px;
+    font-weight: 500;
+    width: 32px; /* NEW: Make icon buttons square */
+    height: 32px; /* NEW */
+}
+#myTripsList button[data-action="track-trip"] {
+    background: #4caf50;
+}
+#myTripsList button[data-action="track-trip"]:hover {
+    background: #45a049;
+}
+#myTripsList button.btn-delete {
+    background: var(--color-logout-2);
+}
+#myTripsList button.btn-delete:hover {
+    background: #d92a0a;
+}
+#editTripContainer {
+    margin-top: 20px;
+    background: rgba(0,0,0,0.2);
+    padding: 20px;
+    border-radius: 10px;
+}
+
+/* ---------------------------------
+ * 6. ANIMATIONS
+ * --------------------------------- */
 @keyframes fadeIn {
-  0% {opacity: 0; transform: translateY(20px);}
-  100% {opacity: 1; transform: translateY(0);}
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes slideDown {
@@ -380,150 +788,414 @@ body.dashboard {
   }
 }
 
-/* ---------------- MODAL (Trip Planner) ---------------- */
-.modal {
-  display: none;
-  position: fixed;
-  top:0; left:0;
-  width:100%;
-  height:100%;
-  background: rgba(0,0,0,0.6);
-  justify-content: center;
-  align-items:center;
-  z-index:1000;
-  animation: fadeIn 0.3s;
+/* ---------------------------------
+ * 7. RESPONSIVE DESIGN (Mobile)
+ * --------------------------------- */
+
+/* 🔹 Tablet (<= 900px) */
+@media (max-width: 900px) {
+    /* Auth Page: Stack panels vertically */
+    .auth-container {
+        flex-direction: column;
+        width: 90%;
+        min-height: auto;
+        max-width: 500px;
+    }
+    
+    /* Add radius to top/bottom of stack */
+    .left-panel {
+        border-radius: var(--border-radius-main) var(--border-radius-main) 0 0;
+    }
+    .right-panel {
+        border-radius: 0 0 var(--border-radius-main) var(--border-radius-main);
+    }
+    
+    .my-trips-layout {
+        flex-direction: column;
+    }
+    .my-trips-list-container {
+        width: 100%;
+        max-height: 250px;
+    }
 }
 
-.modal-content {
-  background: #111;
-  margin: 8% auto;
-  padding: 20px;
-  border-radius: 15px;
-  width: 50%;
-  color: #fff;
+/* 🔹 Large Mobile (<= 768px) */
+@media (max-width: 768px) {
+  /* Dashboard Nav: Stack items */
+  .dashboard .top-nav {
+    flex-direction: column;
+    gap: 20px;
+    padding: 20px;
+  }
+  .top-nav h1 {
+      font-size: 22px;
+      text-align: center;
+  }
+
+  .top-nav ul {
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    align-items: center;
+  }
+
+  .top-nav ul li {
+    width: 100%;
+    text-align: center;
+  }
+
+  .top-nav ul li a {
+    display: block; /* Make links full width */
+    width: 100%;
+  }
 }
 
-/* ---------------- Close Button ---------------- */
-.modal .close {
-  color: #fff;
-  float: right;
-  font-size: 28px;
-  cursor: pointer;
+/* 🔹 Small Mobile (<= 480px) */
+@media (max-width: 480px) {
+  .overlay-text h1 {
+    font-size: 26px;
+  }
+  .right-panel h2 {
+    font-size: 22px;
+  }
+
+  .right-panel, .left-panel, .dashboard-content {
+    padding: 25px;
+  }
+
+  .cards {
+    gap: 20px;
+  }
+  
+  .card {
+      width: 100%; /* Cards stack vertically */
+      max-width: 300px;
+      height: 250px;
+  }
+
+  /* Make modal content almost full width */
+  .modal-content {
+    width: 95%;
+    padding: 20px;
+  }
+
+  .modal-content h2 {
+    font-size: 20px;
+  }
+
+  /* Fix autocomplete position/width for modal */
+  #tripPlannerModal ul {
+    width: calc(100% - 40px); /* Match new padding */
+    left: 20px;
+  }
+
+  .dashboard .top-nav {
+    padding: 15px;
+  }
+  
+  .form-row {
+      flex-direction: column;
+      gap: 0;
+  }
+  
+  .budget-summary {
+      flex-direction: column;
+      gap: 10px;
+  }
 }
 
-/* ----------------- PLAN TRIP INTERFACE ----------------- */
-.modal-content {
-  background: rgba(255,255,255,0.1);
-  backdrop-filter: blur(20px);
-  border-radius: 20px;
-  width: 500px;
-  max-width: 90%;
-  padding: 30px;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.6);
-  color: #fff;
-  text-align: center;
-  animation: fadeIn 0.5s ease;
+/* =========================================
+   NEW STYLES FOR ENHANCED FEATURES
+=========================================
+*/
+
+/* 🔹 Budget Planner Enhancements */
+.form-row {
+    display: flex;
+    gap: 15px;
+}
+.form-row > div {
+    flex: 1;
+}
+.input-with-button {
+    display: flex;
+    gap: 10px;
+}
+.input-with-button input {
+    flex-grow: 1;
+    margin-bottom: 15px; /* Match other inputs */
+}
+.input-with-button button.btn-estimate {
+    flex-shrink: 0;
+    width: auto;
+    padding: 10px 15px;
+    background: #4caf50;
+    font-size: 14px;
+    margin-bottom: 15px; /* Match other inputs */
+}
+.input-with-button button.btn-estimate:hover {
+    background: #45a049;
+}
+.budget-calculator {
+    background: rgba(0,0,0,0.2);
+    padding: 15px;
+    border-radius: 10px;
+    margin: 20px 0;
+}
+.budget-calculator h4 {
+    margin: 0 0 15px 0;
+    text-align: center;
+    color: var(--color-primary);
+}
+.radio-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+.radio-group input[type="radio"] {
+    width: auto;
+    margin: 0;
+}
+.radio-group label {
+    margin: 0;
+    font-weight: 300;
 }
 
-.modal-content h2 {
-  font-size: 24px;
-  font-weight:700;
-  margin-bottom:15px;
-  color: #1d72b8;
+
+/* 🔹 Live Tracker ETA Box */
+#route-summary {
+    background: rgba(0,0,0,0.3);
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 15px;
+    border: 1px solid rgba(255,255,255,0.2);
+}
+#route-summary p {
+    margin: 0;
+    font-size: 16px;
+    display: flex;
+    justify-content: space-between;
+}
+#route-summary p:first-child {
+    margin-bottom: 5px;
+}
+#route-summary span {
+    font-weight: 600;
+    color: var(--color-primary);
+}
+#recalculate-route-btn {
+    width: 100%;
+    margin-top: 10px;
+    background: #f0ad4e;
+    font-size: 14px;
+    padding: 8px;
+}
+#recalculate-route-btn:hover {
+    background: #ec971f;
 }
 
-.modal-content input {
-  width:100%;
-  padding:10px 12px;
-  margin:6px 0 12px;
-  border-radius:8px;
-  border:1px solid #ccc;
-  font-size:15px;
-  color:#333;
-  background:#fff;
-  transition: all 0.2s;
+
+/* 🔹 Enhanced Travel Tips (Accordion) */
+.tips-accordion {
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+.tips-accordion .tip-category {
+    background: rgba(0,0,0,0.2);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    overflow: hidden;
+}
+.tips-accordion .tip-header {
+    padding: 15px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255,255,255,0.1);
+}
+.tips-accordion .tip-header:hover {
+    background: rgba(255,255,255,0.2);
+}
+.tips-accordion .tip-header h4 {
+    margin: 0;
+    color: var(--color-primary);
+}
+.tips-accordion .tip-header i {
+    transition: transform 0.3s ease;
+}
+.tips-accordion .tip-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease, padding 0.3s ease;
+    padding: 0 15px;
+}
+.tips-accordion .tip-content ul {
+    padding-left: 20px;
+    margin: 15px 0;
+}
+.tips-accordion .tip-content li {
+    margin-bottom: 10px;
+}
+/* Active state for accordion */
+.tips-accordion .tip-category.active .tip-content {
+    max-height: 500px; /* arbitrary high value */
+    padding: 0 15px 15px 15px;
+}
+.tips-accordion .tip-category.active .tip-header i {
+    transform: rotate(180deg);
 }
 
-.modal-content input:focus {
-  outline:none;
-  border-color:#1d72b8;
-  box-shadow:0 0 8px rgba(29,114,184,0.2);
+
+/* 🔹 Nearby-on-Route Modal */
+#budgetTrackerModalContent h4 {
+    margin-top: 15px;
+    margin-bottom: 5px;
+    color: var(--color-primary);
+    border-bottom: 1px solid rgba(255,255,255,0.3);
+    padding-bottom: 5px;
+}
+#budgetTrackerModalContent h4 i {
+    margin-right: 5px;
 }
 
-#tripPlannerModal ul {
-  list-style:none;
-  padding:0;
-  margin:0;
-  background:#fff;
-  border:1px solid #ccc;
-  max-height:180px;
-  overflow-y:auto;
-  position:absolute;
-  z-index:10;
-  width:calc(100% - 20px);
-  border-radius:6px;
-  box-shadow:0 4px 12px rgba(0,0,0,0.15);
+
+/* 🔹 Leaflet Routing Machine Panel */
+.leaflet-routing-container {
+    background: var(--bg-glass-1) !important;
+    backdrop-filter: blur(10px);
+    color: var(--color-text-light) !important;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.2);
+    max-height: 300px;
+    overflow-y: auto;
+}
+.leaflet-routing-alt {
+    background: var(--bg-glass-1) !important;
+}
+.leaflet-routing-alt:hover {
+    background: var(--bg-glass-2) !important;
+}
+.leaflet-routing-instruction, .leaflet-routing-summary {
+    color: var(--color-text-light) !important;
 }
 
-#tripPlannerModal ul li {
-  padding:10px 12px;
-  cursor:pointer;
-  transition: background 0.2s;
+/* 🔹 Chatbot Modal */
+.chat-window {
+    height: 400px;
+    max-height: 60vh;
+    overflow-y: auto;
+    background: rgba(0,0,0,0.2);
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+.chat-message {
+    padding: 10px 15px;
+    border-radius: 15px;
+    max-width: 80%;
+    word-wrap: break-word;
+}
+.chat-message p {
+    margin: 0;
+    color: #fff;
+}
+.chat-message.bot {
+    background: var(--color-modal-accent);
+    align-self: flex-start;
+    border-bottom-left-radius: 0;
+}
+.chat-message.user {
+    background: #555;
+    align-self: flex-end;
+    border-bottom-right-radius: 0;
+}
+.chat-input-area {
+    display: flex;
+    gap: 10px;
+}
+.chat-input-area input {
+    flex-grow: 1;
+    margin: 0;
+}
+.chat-input-area button {
+    width: 50px;
+    flex-shrink: 0;
+    padding: 0;
+    font-size: 16px;
+}
+.chat-message.typing p {
+    display: flex;
+    align-items: center;
+}
+.chat-message.typing span {
+    height: 8px;
+    width: 8px;
+    background: #9e9e9e;
+    border-radius: 50%;
+    display: inline-block;
+    margin: 0 2px;
+    animation: bounce 1.4s infinite both;
+}
+.chat-message.typing span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+.chat-message.typing span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+@keyframes bounce {
+    0%, 80%, 100% { transform: scale(0); }
+    40% { transform: scale(1.0); }
 }
 
-#tripPlannerModal ul li:hover {
-  background:#1d72b8;
-  color:#fff;
+/* =========================================
+   NEW: CHATBOT FLOATING BUTTON
+=========================================
+*/
+
+#chatbot-float-btn {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 60px;
+    height: 60px;
+    background: var(--gradient-button);
+    background-size: 200% auto;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-size: 28px;
+    cursor: pointer;
+    box-shadow: 0 5px 20px rgba(37,117,252,0.5);
+    z-index: 998;
+    transition: 0.5s;
+    animation: pulse 2s infinite;
 }
 
-.modal-content button {
-  padding:10px 25px;
-  margin:5px;
-  border:none;
-  border-radius:10px;
-  background:#1d72b8;
-  color:#fff;
-  cursor:pointer;
-  font-weight:600;
-  transition: all 0.2s;
+#chatbot-float-btn:hover {
+    background-position: right center;
+    transform: scale(1.1);
+    animation-play-state: paused;
 }
 
-.modal-content button:hover {
-  background:#155a8a;
-}
-
-#map {
-  height:400px;
-  margin-top:20px;
-  border-radius:10px;
-  box-shadow:0 4px 15px rgba(0,0,0,0.2);
-}
-#tripPlannerModal ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  background: #fff;
-  border: 1px solid #ccc;
-  max-height: 180px;
-  overflow-y: auto;
-  position: absolute; /* Important */
-  z-index: 10000; /* Make sure it’s above modal content */
-  width: calc(100% - 20px);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-}
-
-#tripPlannerModal ul li {
-  padding: 10px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-#tripPlannerModal ul li:hover {
-  background: #1d72b8;
-  color: #fff;
-}
-#start_location, #destination {
-  position: relative;
-  z-index: 1000;
+@keyframes pulse {
+    0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(37,117,252, 0.7);
+    }
+    70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 10px rgba(37,117,252, 0);
+    }
+    100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(37,117,252, 0);
+    }
 }
