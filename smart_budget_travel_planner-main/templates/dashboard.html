@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - TripWise - Smart Travel Planner</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="dashboard">
+
+  <nav class="top-nav">
+    <div class="nav-logo">
+      <img src="https://cdn-icons-png.flaticon.com/512/744/744502.png" alt="Logo">
+      <h1>TripWise</h1>
+    </div>
+    <ul>
+      <li><a href="#" data-action="my-trips">My Trips</a></li>
+      <li><a href="#" data-action="budget">Budget Planner</a></li>
+      <li><a href="{{ url_for('logout') }}" class="logout-btn">Logout</a></li>
+    </ul>
+  </nav>
+
+  <main class="dashboard-content">
+    <h2>Welcome Back, {{ user_name }}!</h2>
+    <p>Explore your trips and plan new adventures.</p>
+
+    <div class="cards">
+      <div class="card option-card" data-action="plan">
+        <div class="card-bg" style="background-image: url('https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=500&q=80');"></div>
+        <div class="card-content">
+          <img src="https://cdn-icons-png.flaticon.com/512/684/684908.png" alt="">
+          <h3>Plan Trip</h3>
+          <p>Get a smart travel plan with destination, budget, and duration.</p>
+        </div>
+      </div>
+
+      <div class="card option-card" data-action="budget">
+        <div class="card-bg" style="background-image: url('https://images.unsplash.com/photo-1567427017947-545c5f8d16ad?auto=format&fit=crop&w=500&q=80');"></div>
+        <div class="card-content">
+          <img src="https://cdn-icons-png.flaticon.com/512/2331/2331970.png" alt="">
+          <h3>Budget Tracker</h3>
+          <p>Track expenses and save smartly while traveling.</p>
+        </div>
+      </div>
+
+      <div class="card option-card" data-action="nearby">
+        <div class="card-bg" style="background-image: url('https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=500&q=80');"></div>
+        <div class="card-content">
+          <img src="https://cdn-icons-png.flaticon.com/512/252/252025.png" alt="">
+          <h3>Nearby Attractions</h3>
+          <p>Get real-time recommendations for popular places nearby.</p>
+        </div>
+      </div>
+
+      <div class="card option-card" data-action="live">
+        <div class="card-bg" style="background-image: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=500&q=80');"></div>
+        <div class="card-content">
+          <img src="https://cdn-icons-png.flaticon.com/512/854/854878.png" alt="">
+          <h3>Live Tracker</h3>
+          <p>Track your real-time location and route progress easily.</p>
+        </div>
+      </div>
+
+      <div class="card option-card" data-action="tips">
+        <div class="card-bg" style="background-image: url('https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=500&q=80');"></div>
+        <div class="card-content">
+          <img src="https://cdn-icons-png.flaticon.com/512/1029/1029183.png" alt="">
+          <h3>Travel Tips</h3>
+          <p>Get safety advice and best tips for smooth travel experiences.</p>
+        </div>
+      </div>
+      
+    </div>
+    
+    <div style="display:none;" id="trips"></div>
+  </main>
+
+  <div id="tripPlannerModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="planner-title">
+    <div class="modal-content">
+      <span class="close" onclick="closeTripPlanner()">&times;</span>
+      <h2 id="planner-title">Plan Your Trip</h2>
+      
+      <div id="route-summary" style="display:none;">
+        <p><strong>Remaining:</strong> <span id="route-dist">...</span></p>
+        <p><strong>Est. Arrival:</strong> <span id="route-eta">...</span></p>
+        <button type="button" id="recalculate-route-btn" class="btn-recalculate" onclick="App.Track.recalculateRoute()">
+            <i class="fas fa-sync-alt"></i> Recalculate Route
+        </button>
+      </div>
+
+      <label for="start_location">Start Location:</label>
+      <input type="text" id="start_location" placeholder="Enter starting point">
+      <ul id="start_suggestions"></ul>
+
+      <label for="destination">Destination:</label>
+      <input type="text" id="destination" placeholder="Enter destination">
+      <ul id="dest_suggestions"></ul>
+
+      <input type="hidden" id="start_lat" />
+      <input type="hidden" id="start_lon" />
+      <input type="hidden" id="latitude" />
+      <input type="hidden" id="longitude" />
+
+      <label for="trip_name">Trip Name:</label>
+      <input type="text" id="trip_name">
+      
+      <div class="form-row">
+        <div>
+          <label for="start_date">Start Date:</label>
+          <input type="date" id="start_date">
+        </div>
+        <div>
+          <label for="end_date">End Date:</label>
+          <input type="date" id="end_date">
+        </div>
+      </div>
+      
+      <div class="budget-calculator">
+        <h4>Smart Budget Calculator</h4>
+        <div class="form-row">
+            <div>
+                <label>Traveler Type</label>
+                <div class="radio-group">
+                    <input type="radio" id="solo" name="traveler_type" value="solo" checked>
+                    <label for="solo">Solo</label>
+                    <input type="radio" id="group" name="traveler_type" value="group">
+                    <label for="group">Group</label>
+                </div>
+            </div>
+            <div id="group_size_wrapper" style="display:none;">
+                <label for="group_size">How many?</label>
+                <input type="number" id="group_size" value="2" min="2">
+            </div>
+        </div>
+        <div class="form-row">
+            <div>
+                <label>Travel Style</label>
+                <div class="radio-group">
+                    <input type="radio" id="budget_style" name="travel_style" value="budget" checked>
+                    <label for="budget_style">Budget</label>
+                    <input type="radio" id="mid_style" name="travel_style" value="mid">
+                    <label for="mid_style">Mid-range</label>
+                    <input type="radio" id="luxury_style" name="travel_style" value="luxury">
+                    <label for="luxury_style">Luxury</label>
+                </div>
+            </div>
+        </div>
+        <label for="budget">Estimated Budget (₹)</label>
+        <div class="input-with-button">
+          <input type="number" id="budget" placeholder="Click 'Calculate' to estimate">
+          <button type="button" class="btn-estimate" onclick="App.Budget.estimateBudget()">Calculate</button>
+        </div>
+      </div>
+      <div class="modal-buttons">
+        <button type="button" onclick="addTrip()">Add Trip</button>
+        <button type="button" onclick="closeTripPlanner()" class="btn-close">Close</button>
+      </div>
+
+      <div id="map"></div>
+    </div>
+  </div>
+
+  <div id="budgetTrackerModal" class="modal" role="dialog" aria-modal="true" aria-label="Feature Modal">
+    <div class="modal-content">
+      <span class="close" onclick="App.Budget.closeBudgetTracker()">&times;</span>
+      <div id="budgetTrackerModalContent"></div>
+    </div>
+  </div>
+
+  <div id="myTripsModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="my-trips-title">
+    <div class="modal-content wide">
+      <span class="close" onclick="closeMyTripsModal()">&times;</span>
+      <h2 id="my-trips-title">My Trips</h2>
+      <p style="text-align: center; margin-top: -15px; margin-bottom: 20px; opacity: 0.8;">Select a trip to track, edit, or manage its budget.</p>
+      
+      <div class="my-trips-layout">
+        <div class="my-trips-list-container">
+          <ul id="myTripsList"></ul>
+        </div>
+
+        <div class="my-trips-details">
+          <div id="myTripsMap"></div>
+          <div id="editTripContainer" style="display: none;">
+            <h3>Edit Trip</h3>
+            <input type="hidden" id="edit_trip_id" />
+            <label for="edit_trip_name">Trip Name</label>
+            <input type="text" id="edit_trip_name" />
+            <label for="edit_destination">Destination</label>
+            <input type="text" id="edit_destination" />
+            <label for="edit_budget">Budget</label>
+            <input type="number" id="edit_budget" />
+            <label for="edit_latitude">Latitude</label>
+            <input type="text" id="edit_latitude" />
+            <label for="edit_longitude">Longitude</label>
+            <input type="text" id="edit_longitude" />
+            <div class="modal-buttons">
+              <button type="button" onclick="saveTripEdits()">Save</button>
+              <button type="button" onclick="closeEditPanel()" class="btn-close">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="modal-buttons text-center">
+         <button type="button" onclick="closeMyTripsModal()" class="btn-close">Close</button>
+      </div>
+    </div>
+  </div>
+  
+  <div id="chatbotModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="chatbot-title">
+    <div class="modal-content">
+      <span class="close" onclick="App.Chatbot.close()">&times;</span>
+      <h2 id="chatbot-title">AI Assistant</h2>
+      <div class="chat-window" id="chatWindow">
+        <div class="chat-message bot">
+          <p>Hi there! I'm your AI assistant. How can I help? You can ask me for "safety tips", "emergency contacts", or "where am I".</p>
+        </div>
+        <div class="chat-message bot typing" id="bot-typing-indicator" style="display: none;">
+            <p><span></span><span></span><span></span></p>
+        </div>
+      </div>
+      <div class="chat-input-area">
+        <input type="text" id="chatInput" placeholder="Type your message...">
+        <button id="chatSendBtn"><i class="fas fa-paper-plane"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="chatbot-float-btn" onclick="App.Chatbot.open()" title="Open AI Assistant">
+      <i class="fas fa-robot"></i>
+  </div>
+
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+  
+  <script src="{{ url_for('static', filename='js/chatbot.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
