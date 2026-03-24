@@ -89,7 +89,7 @@
       <div id="route-summary" style="display:none;">
         <p><strong>Remaining:</strong> <span id="route-dist">...</span></p>
         <p><strong>Est. Arrival:</strong> <span id="route-eta">...</span></p>
-        <button type="button" id="recalculate-route-btn" class="btn-recalculate" onclick="App.Track.recalculateRoute()">
+        <button type="button" id="recalculate-route-btn" class="btn-recalculate" onclick="if(window.App && window.App.Track) App.Track.recalculateRoute()">
             <i class="fas fa-sync-alt"></i> Recalculate Route
         </button>
       </div>
@@ -154,7 +154,7 @@
         <label for="budget">Estimated Budget (₹)</label>
         <div class="input-with-button">
           <input type="number" id="budget" placeholder="Click 'Calculate' to estimate">
-          <button type="button" class="btn-estimate" onclick="App.Budget.estimateBudget()">Calculate</button>
+          <button type="button" class="btn-estimate" onclick="if(window.App && window.App.Budget) App.Budget.estimateBudget()">Calculate</button>
         </div>
       </div>
       <div class="modal-buttons">
@@ -168,7 +168,7 @@
 
   <div id="budgetTrackerModal" class="modal" role="dialog" aria-modal="true" aria-label="Feature Modal">
     <div class="modal-content">
-      <span class="close" onclick="App.Budget.closeBudgetTracker()">&times;</span>
+      <span class="close" onclick="if(window.App && window.App.Budget) App.Budget.closeBudgetTracker()">&times;</span>
       <div id="budgetTrackerModalContent"></div>
     </div>
   </div>
@@ -215,7 +215,7 @@
   
   <div id="chatbotModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="chatbot-title">
     <div class="modal-content">
-      <span class="close" onclick="App.Chatbot.close()">&times;</span>
+      <span class="close" onclick="if(window.App && window.App.Chatbot) App.Chatbot.close()">&times;</span>
       <h2 id="chatbot-title">AI Assistant</h2>
       <div class="chat-window" id="chatWindow">
         <div class="chat-message bot">
@@ -232,10 +232,27 @@
     </div>
   </div>
 
-  <div id="chatbot-float-btn" onclick="App.Chatbot.open()" title="Open AI Assistant">
+  <div id="chatbot-float-btn" onclick="if(window.App && window.App.Chatbot) App.Chatbot.open()" title="Open AI Assistant">
       <i class="fas fa-robot"></i>
   </div>
 
+  <!-- Global error handling for missing App object -->
+  <script>
+    // Create a placeholder for App if dashboard.js fails to load
+    window.App = window.App || {
+      Budget: {
+        closeBudgetTracker: function() { console.warn('Budget module not loaded'); },
+        estimateBudget: function() { alert('Please wait for the page to fully load.'); }
+      },
+      Chatbot: {
+        close: function() { console.warn('Chatbot module not loaded'); },
+        open: function() { alert('Chatbot is loading. Please wait a moment.'); }
+      },
+      Track: {
+        recalculateRoute: function() { alert('Live tracking not active.'); }
+      }
+    };
+  </script>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
