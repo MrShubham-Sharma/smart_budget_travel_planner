@@ -9,7 +9,6 @@
  * - Chatbot integration
  * - NEW UI Animations
  * - Auto-select most recent trip for Live Tracker and Budget Tracker
- * - Simplified Budget Estimator (₹2000/day)
  */
 
 // ---------------------------------
@@ -707,7 +706,7 @@ const App = {
     },
 
     /**
-     * NEW: Smart Budget Estimator (Original with Traveler Type and Style)
+     * NEW: Smart Budget Estimator
      */
     estimateBudget: function() {
         // 1. Get number of days from trip dates
@@ -741,43 +740,6 @@ Rate      : ₹${dailyCostPerPerson}/person/day
 ---------------------------------
 Total     : ₹${estimatedBudget.toFixed(0)}
 (covers stay, food & local transport)`);
-    },
-
-    /**
-     * NEW: Simplified Budget Estimator (₹2000/day)
-     * This is for the simplified UI where traveler type and style are removed
-     */
-    estimateSimpleBudget: function() {
-        // 1. Get number of days from trip dates
-        const startDateStr = App.Util.getVal('start_date');
-        const endDateStr = App.Util.getVal('end_date');
-        
-        if (!startDateStr || !endDateStr) {
-            return alert("Please select Start and End dates first.");
-        }
-        
-        const startDate = new Date(startDateStr);
-        const endDate = new Date(endDateStr);
-        
-        if (isNaN(startDate) || isNaN(endDate) || endDate < startDate) {
-            return alert("Please select a valid Start and End date.");
-        }
-        
-        const numDays = Math.ceil(Math.abs(endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
-        
-        // Simple daily budget calculation (₹2000 per day as standard)
-        const dailyBudget = 2000;
-        const totalBudget = dailyBudget * numDays;
-        
-        // Fill the budget field
-        App.Util.setVal('budget', totalBudget.toFixed(0));
-        
-        alert(`Estimated Budget:\n
-Duration: ${numDays} day(s)
-Daily Budget: ₹${dailyBudget}/day
----------------------------------
-Total Estimated: ₹${totalBudget.toFixed(0)}
-(This covers accommodation, food, and local transport)`);
     }
   },
 
