@@ -8,6 +8,8 @@
  * - Upgraded Budget Tracker UI
  * - Chatbot integration
  * - NEW UI Animations
+ * - Auto-select most recent trip for Live Tracker and Budget Tracker
+ * - Simplified Budget Estimator (₹2000/day)
  */
 
 // ---------------------------------
@@ -28,6 +30,7 @@ const App = {
     destTimeout: null,
     activeTripForTracking: null, // Stores data of the trip being tracked
     isTrackingInitialized: false, // Flag for live tracker
+    allTrips: [], // Store all trips for quick access
   },
 
   // 🔹 Elements
@@ -41,6 +44,7 @@ const App = {
     this.attachGlobalHandlers();
     this.Map.initMainMap();
     App.Chatbot.init(); // Initialize the chatbot listeners
+    this.loadTripsForAutoSelect(); // Load trips for auto-selection
   },
 
   cacheElements: function () {
@@ -113,6 +117,24 @@ const App = {
     });
   },
 
+  // NEW: Load trips for auto-selection
+  loadTripsForAutoSelect: async function() {
+    try {
+      const response = await fetch("/get-trips");
+      const data = await response.json();
+      
+      if (data.status === "success" && data.trips && data.trips.length > 0) {
+        this.State.allTrips = data.trips;
+        // Auto-select the most recent trip (last in list or by highest ID)
+        const mostRecentTrip = data.trips[data.trips.length - 1];
+        this.State.activeTripForTracking = mostRecentTrip;
+        console.log("Auto-selected trip:", mostRecentTrip.trip_name);
+      }
+    } catch (err) {
+      console.error("Failed to load trips for auto-select:", err);
+    }
+  },
+
   // ---------------------------------
   // 3. CARD ACTION HANDLER
   // ---------------------------------
@@ -128,7 +150,7 @@ const App = {
     
     switch (action) {
       case 'plan': this.Trip.openTripPlanner(); break;
-      case 'budget': this.Budget.openBudgetTrackerUI(); break;
+      case 'budget': this.Budget.openBudgetPlanner(); break;
       case 'nearby': this.Nearby.openNearbyAttractions(); break;
       case 'live': this.Track.startLiveTracking(); break;
       case 'tips': this.Tips.openTravelTips(); break;
@@ -367,6 +389,8 @@ const App = {
         alert(result.message || "Response received");
         if (result.status === "success") {
           this.closeTripPlanner();
+          // Reload trips for auto-selection
+          App.loadTripsForAutoSelect();
         }
       } catch (err) {
         console.error("addTrip error:", err);
@@ -399,9 +423,12 @@ const App = {
         this.clearMapMarkers();
 
         if (data.status !== "success" || !data.trips || data.trips.length === 0) {
-           App.Elements.myTripsList.innerHTML = "<li>No trips found.</li>";
+           App.Elements.myTripsList.innerHTML = "<li>No trips found. Create a trip first!</li>";
            return;
         }
+        
+        // Store trips for auto-selection
+        App.State.allTrips = data.trips;
         
         const fragment = document.createDocumentFragment();
         data.trips.forEach(trip => {
@@ -450,7 +477,8 @@ const App = {
                 App.Track.startLiveTracking();
                 break;
             case 'open-budget':
-                App.Budget.openBudgetTrackerUI(tripId);
+                this.closeMyTripsModal();
+                App.Budget.openBudgetTracker(tripId);
                 break;
             case 'edit-trip':
                 this.openEditPanel(tripData);
@@ -518,6 +546,8 @@ const App = {
         if (data.status === "success") {
           this.closeEditPanel();
           this.loadMyTripsList();
+          // Reload trips for auto-selection
+          App.loadTripsForAutoSelect();
         }
       } catch (err) {
         console.error("saveTripEdits error:", err);
@@ -539,6 +569,8 @@ const App = {
         alert(data.message || "Delete response");
         if (data.status === "success") {
           this.loadMyTripsList();
+          // Reload trips for auto-selection
+          App.loadTripsForAutoSelect();
         }
       } catch (err) {
         console.error("deleteTrip error:", err);
@@ -557,22 +589,20 @@ const App = {
         solo:  { budget: 800,  mid: 2000, luxury: 6000 },
         group: { budget: 600,  mid: 1500, luxury: 4500 }  // Per person (shared accommodation discount)
     },
-  
-    openBudgetTrackerUI: function (trip_id = null) {
-      if (!trip_id) {
-        const html = `
-          <h3>Budget Planner</h3>
-          <p>Select a trip from My Trips to see expenses, or create a new trip.</p>
-          <div class="modal-buttons text-center">
-            <button onclick="App.Budget.closeBudgetTracker()" class="btn-close">Close</button>
-          </div>
-        `;
-        App.Util.showModal(html);
-        return;
+    
+    openBudgetPlanner: function() {
+      // Check if there's a most recent trip available
+      if (App.State.allTrips && App.State.allTrips.length > 0) {
+        const mostRecentTrip = App.State.allTrips[App.State.allTrips.length - 1];
+        alert(`Opening budget tracker for your most recent trip: "${mostRecentTrip.trip_name}"`);
+        this.openBudgetTracker(mostRecentTrip.id);
+      } else {
+        // If no trips, open My Trips modal
+        alert("You don't have any trips yet. Please create a trip first from the 'Plan Trip' card.");
+        App.Trip.openTripPlanner();
       }
-      this.openBudgetTracker(trip_id);
     },
-
+  
     openBudgetTracker: async function (trip_id) {
         App.Util.showModal('<h3>Loading Expenses...</h3>');
       try {
@@ -677,7 +707,7 @@ const App = {
     },
 
     /**
-     * NEW: Smart Budget Estimator
+     * NEW: Smart Budget Estimator (Original with Traveler Type and Style)
      */
     estimateBudget: function() {
         // 1. Get number of days from trip dates
@@ -707,10 +737,47 @@ const App = {
         alert(`Budget Estimate:\n
 Travelers : ${groupSize} person(s) [${travelerType}, ${travelStyle}]
 Duration  : ${numDays} day(s)
-Rate      : \u20b9${dailyCostPerPerson}/person/day
+Rate      : ₹${dailyCostPerPerson}/person/day
 ---------------------------------
-Total     : \u20b9${estimatedBudget.toFixed(0)}
+Total     : ₹${estimatedBudget.toFixed(0)}
 (covers stay, food & local transport)`);
+    },
+
+    /**
+     * NEW: Simplified Budget Estimator (₹2000/day)
+     * This is for the simplified UI where traveler type and style are removed
+     */
+    estimateSimpleBudget: function() {
+        // 1. Get number of days from trip dates
+        const startDateStr = App.Util.getVal('start_date');
+        const endDateStr = App.Util.getVal('end_date');
+        
+        if (!startDateStr || !endDateStr) {
+            return alert("Please select Start and End dates first.");
+        }
+        
+        const startDate = new Date(startDateStr);
+        const endDate = new Date(endDateStr);
+        
+        if (isNaN(startDate) || isNaN(endDate) || endDate < startDate) {
+            return alert("Please select a valid Start and End date.");
+        }
+        
+        const numDays = Math.ceil(Math.abs(endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+        
+        // Simple daily budget calculation (₹2000 per day as standard)
+        const dailyBudget = 2000;
+        const totalBudget = dailyBudget * numDays;
+        
+        // Fill the budget field
+        App.Util.setVal('budget', totalBudget.toFixed(0));
+        
+        alert(`Estimated Budget:\n
+Duration: ${numDays} day(s)
+Daily Budget: ₹${dailyBudget}/day
+---------------------------------
+Total Estimated: ₹${totalBudget.toFixed(0)}
+(This covers accommodation, food, and local transport)`);
     }
   },
 
@@ -723,16 +790,21 @@ Total     : \u20b9${estimatedBudget.toFixed(0)}
         return alert("Geolocation not supported by your browser.");
       }
       
-      // FIX: Check if a trip is selected first.
+      // Check if there's a most recent trip available
+      if (!App.State.activeTripForTracking && App.State.allTrips && App.State.allTrips.length > 0) {
+        App.State.activeTripForTracking = App.State.allTrips[App.State.allTrips.length - 1];
+        alert(`Auto-selected your most recent trip: "${App.State.activeTripForTracking.trip_name}" for tracking.`);
+      }
+      
+      // Check if a trip is selected
       if (!App.State.activeTripForTracking) {
-          alert("Please select a trip from 'My Trips' first, then click 'Track'.");
-          App.Trip.openMyTripsModal();
+          alert("You don't have any trips yet. Please create a trip first from the 'Plan Trip' card.");
+          App.Trip.openTripPlanner();
           return;
       }
       
       if (App.State.watchId !== null) {
           alert("Live tracking is already active.");
-          App.Trip.openTripPlanner(true); // Open map in tracking mode
           return;
       }
       
@@ -833,7 +905,7 @@ Total     : \u20b9${estimatedBudget.toFixed(0)}
         App.State.watchId = null;
       }
       if (App.State.routeControl) {
-        if (App.State.map) App.State.map.removeControl(App.State.routeControl); // FIX: was App.Content (typo)
+        if (App.State.map) App.State.map.removeControl(App.State.routeControl);
         App.State.routeControl = null;
       }
       if (App.State.liveMarker) {

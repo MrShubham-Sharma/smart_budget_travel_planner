@@ -81,35 +81,37 @@
     <div style="display:none;" id="trips"></div>
   </main>
 
+  <!-- SIMPLIFIED TRIP PLANNER MODAL -->
   <div id="tripPlannerModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="planner-title">
     <div class="modal-content">
       <span class="close" onclick="closeTripPlanner()">&times;</span>
       <h2 id="planner-title">Plan Your Trip</h2>
       
+      <!-- Route Summary Section (for Live Tracking) -->
       <div id="route-summary" style="display:none;">
-        <p><strong>Remaining:</strong> <span id="route-dist">...</span></p>
-        <p><strong>Est. Arrival:</strong> <span id="route-eta">...</span></p>
-        <button type="button" id="recalculate-route-btn" class="btn-recalculate" onclick="App.Track.recalculateRoute()">
+        <p><strong>Remaining Distance:</strong> <span id="route-dist">...</span></p>
+        <p><strong>Est. Arrival Time:</strong> <span id="route-eta">...</span></p>
+        <button type="button" id="recalculate-route-btn" class="btn-recalculate" onclick="if(window.App && window.App.Track) App.Track.recalculateRoute()">
             <i class="fas fa-sync-alt"></i> Recalculate Route
         </button>
       </div>
 
-      <label for="start_location">Start Location:</label>
-      <input type="text" id="start_location" placeholder="Enter starting point">
-      <ul id="start_suggestions"></ul>
-
+      <!-- Destination Input (for both planning and tracking) -->
       <label for="destination">Destination:</label>
-      <input type="text" id="destination" placeholder="Enter destination">
+      <input type="text" id="destination" placeholder="Enter destination name">
       <ul id="dest_suggestions"></ul>
 
-      <input type="hidden" id="start_lat" />
-      <input type="hidden" id="start_lon" />
       <input type="hidden" id="latitude" />
       <input type="hidden" id="longitude" />
+      <input type="hidden" id="start_lat" />
+      <input type="hidden" id="start_lon" />
+      <input type="hidden" id="start_location" />
 
+      <!-- Trip Name (for saving trips) -->
       <label for="trip_name">Trip Name:</label>
-      <input type="text" id="trip_name">
+      <input type="text" id="trip_name" placeholder="e.g., Summer Vacation 2024">
       
+      <!-- Travel Dates -->
       <div class="form-row">
         <div>
           <label for="start_date">Start Date:</label>
@@ -121,54 +123,27 @@
         </div>
       </div>
       
-      <div class="budget-calculator">
-        <h4>Smart Budget Calculator</h4>
-        <div class="form-row">
-            <div>
-                <label>Traveler Type</label>
-                <div class="radio-group">
-                    <input type="radio" id="solo" name="traveler_type" value="solo" checked>
-                    <label for="solo">Solo</label>
-                    <input type="radio" id="group" name="traveler_type" value="group">
-                    <label for="group">Group</label>
-                </div>
-            </div>
-            <div id="group_size_wrapper" style="display:none;">
-                <label for="group_size">How many?</label>
-                <input type="number" id="group_size" value="2" min="2">
-            </div>
-        </div>
-        <div class="form-row">
-            <div>
-                <label>Travel Style</label>
-                <div class="radio-group">
-                    <input type="radio" id="budget_style" name="travel_style" value="budget" checked>
-                    <label for="budget_style">Budget</label>
-                    <input type="radio" id="mid_style" name="travel_style" value="mid">
-                    <label for="mid_style">Mid-range</label>
-                    <input type="radio" id="luxury_style" name="travel_style" value="luxury">
-                    <label for="luxury_style">Luxury</label>
-                </div>
-            </div>
-        </div>
-        <label for="budget">Estimated Budget (₹)</label>
-        <div class="input-with-button">
-          <input type="number" id="budget" placeholder="Click 'Calculate' to estimate">
-          <button type="button" class="btn-estimate" onclick="App.Budget.estimateBudget()">Calculate</button>
-        </div>
+      <!-- Simplified Budget Display -->
+      <label for="budget">Estimated Budget (₹):</label>
+      <div class="input-with-button">
+        <input type="number" id="budget" placeholder="Auto-calculated based on dates">
+        <button type="button" class="btn-estimate" onclick="if(window.App && window.App.Budget) App.Budget.estimateSimpleBudget()">Calculate</button>
       </div>
+
+      <!-- Action Buttons -->
       <div class="modal-buttons">
-        <button type="button" onclick="addTrip()">Add Trip</button>
+        <button type="button" onclick="addTrip()">Save Trip</button>
         <button type="button" onclick="closeTripPlanner()" class="btn-close">Close</button>
       </div>
 
-      <div id="map"></div>
+      <!-- Map -->
+      <div id="map" style="height: 300px; margin-top: 20px;"></div>
     </div>
   </div>
 
   <div id="budgetTrackerModal" class="modal" role="dialog" aria-modal="true" aria-label="Feature Modal">
     <div class="modal-content">
-      <span class="close" onclick="App.Budget.closeBudgetTracker()">&times;</span>
+      <span class="close" onclick="if(window.App && window.App.Budget) App.Budget.closeBudgetTracker()">&times;</span>
       <div id="budgetTrackerModalContent"></div>
     </div>
   </div>
@@ -215,7 +190,7 @@
   
   <div id="chatbotModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="chatbot-title">
     <div class="modal-content">
-      <span class="close" onclick="App.Chatbot.close()">&times;</span>
+      <span class="close" onclick="if(window.App && window.App.Chatbot) App.Chatbot.close()">&times;</span>
       <h2 id="chatbot-title">AI Assistant</h2>
       <div class="chat-window" id="chatWindow">
         <div class="chat-message bot">
@@ -232,10 +207,27 @@
     </div>
   </div>
 
-  <div id="chatbot-float-btn" onclick="App.Chatbot.open()" title="Open AI Assistant">
+  <div id="chatbot-float-btn" onclick="if(window.App && window.App.Chatbot) App.Chatbot.open()" title="Open AI Assistant">
       <i class="fas fa-robot"></i>
   </div>
 
+  <!-- Global error handling for missing App object -->
+  <script>
+    // Create a placeholder for App if dashboard.js fails to load
+    window.App = window.App || {
+      Budget: {
+        closeBudgetTracker: function() { console.warn('Budget module not loaded'); },
+        estimateSimpleBudget: function() { alert('Please wait for the page to fully load.'); }
+      },
+      Chatbot: {
+        close: function() { console.warn('Chatbot module not loaded'); },
+        open: function() { alert('Chatbot is loading. Please wait a moment.'); }
+      },
+      Track: {
+        recalculateRoute: function() { alert('Live tracking not active.'); }
+      }
+    };
+  </script>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
