@@ -306,7 +306,7 @@ def get_expenses_api(trip_id):
     
     # --- ENHANCEMENT: Return budget details ---
     # trip[6] is the 'budget' column from the 'trips' table
-    trip_budget = trip[6] if trip[6] else 0.0
+    trip_budget = float(trip[6]) if trip[6] is not None else 0.0  # FIX: guard against None
     remaining_budget = trip_budget - total_spent
     # --- END ENHANCEMENT ---
 

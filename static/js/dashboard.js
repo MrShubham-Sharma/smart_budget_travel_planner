@@ -551,10 +551,11 @@ const App = {
   // 6. BUDGET MODULE (ENHANCED)
   // ---------------------------------
   Budget: {
-    // Daily cost profiles (per person)
+    // Daily cost profiles (per person) — realistic Indian travel estimates
+    // Includes: accommodation share + food + local transport + misc
     Profiles: {
-        solo: { budget: 2000, mid: 5000, luxury: 15000 },
-        group: { budget: 1600, mid: 4000, luxury: 12000 } // Per person (20% discount)
+        solo:  { budget: 800,  mid: 2000, luxury: 6000 },
+        group: { budget: 600,  mid: 1500, luxury: 4500 }  // Per person (shared accommodation discount)
     },
   
     openBudgetTrackerUI: function (trip_id = null) {
@@ -582,21 +583,26 @@ const App = {
             throw new Error(data.message);
         }
 
+        // FIX: Safely parse budget values - guard against null/undefined to prevent NaN crash
+        const tripBudget = parseFloat(data.trip_budget) || 0;
+        const totalSpent = parseFloat(data.total_spent) || 0;
+        const remaining = parseFloat(data.remaining_budget) || (tripBudget - totalSpent);
+
         let html = `<h3>Trip Expenses</h3>`;
         html += `
             <div class="budget-summary">
                 <div>
                     <span>Total Budget</span>
-                    <strong>₹${App.Util.escapeHtml(data.trip_budget.toFixed(2))}</strong>
+                    <strong>₹${tripBudget.toFixed(2)}</strong>
                 </div>
                 <div>
                     <span>Total Spent</span>
-                    <strong>₹${App.Util.escapeHtml(data.total_spent.toFixed(2))}</strong>
+                    <strong>₹${totalSpent.toFixed(2)}</strong>
                 </div>
                 <div>
                     <span>Remaining</span>
-                    <strong class="${data.remaining_budget < 0 ? 'error' : 'success'}">
-                        ₹${App.Util.escapeHtml(data.remaining_budget.toFixed(2))}
+                    <strong class="${remaining < 0 ? 'error' : 'success'}">
+                        ₹${remaining.toFixed(2)}
                     </strong>
                 </div>
             </div>
@@ -674,53 +680,37 @@ const App = {
      * NEW: Smart Budget Estimator
      */
     estimateBudget: function() {
-        // 1. Get route distance
-        if (!App.State.routeControl || !App.State.routeControl._routes) {
-            return alert("Please set a start and destination first to get a route.");
+        // 1. Get number of days from trip dates
+        const startDateStr = App.Util.getVal('start_date');
+        const endDateStr = App.Util.getVal('end_date');
+        if (!startDateStr || !endDateStr) {
+            return alert("Please select Start and End dates first.");
         }
-        const distance = App.State.routeControl._routes[0].summary.totalDistance / 1000; // in km
-
-        // 2. Get number of days
-        const startDate = new Date(App.Util.getVal('start_date'));
-        const endDate = new Date(App.Util.getVal('end_date'));
-        let numDays = 1;
-        if (startDate && endDate && endDate >= startDate) {
-            const diffTime = Math.abs(endDate - startDate);
-            numDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-        } else {
+        const startDate = new Date(startDateStr);
+        const endDate = new Date(endDateStr);
+        if (isNaN(startDate) || isNaN(endDate) || endDate < startDate) {
             return alert("Please select a valid Start and End date.");
         }
+        const numDays = Math.ceil(Math.abs(endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
 
-        // 3. Get user profile
-        const travelerType = document.querySelector('input[name="traveler_type"]:checked').value; // 'solo' or 'group'
-        const travelStyle = document.querySelector('input[name="travel_style"]:checked').value; // 'budget', 'mid', 'luxury'
-        const groupSize = (travelerType === 'group') ? parseInt(App.Elements.group_size.value) : 1;
-        
+        // 2. Get traveler profile
+        const travelerType = document.querySelector('input[name="traveler_type"]:checked').value;
+        const travelStyle = document.querySelector('input[name="travel_style"]:checked').value;
+        const groupSize = (travelerType === 'group') ? (parseInt(App.Elements.group_size.value) || 1) : 1;
+
+        // 3. Calculate directly: daily rate × persons × days
         const dailyCostPerPerson = this.Profiles[travelerType][travelStyle];
-        const totalDailyCost = dailyCostPerPerson * groupSize * numDays;
-        
-        // 4. Get travel cost
-        const costPerKm = parseFloat(prompt("Enter estimated cost per km (for fuel, tolls, etc.):", "15"));
-        if (isNaN(costPerKm)) return alert("Invalid cost per km.");
-        
-        const travelCost = distance * costPerKm * 2; // * 2 for round trip
+        const estimatedBudget = dailyCostPerPerson * groupSize * numDays;
 
-        // 5. Calculate
-        const estimatedBudget = travelCost + totalDailyCost;
-
-        // 6. Set value
+        // 4. Fill the budget field
         App.Util.setVal('budget', estimatedBudget.toFixed(0));
-        alert(`Smart Budget Calculated:\n
-Travel Style: ${travelerType} (${groupSize} person/s), ${travelStyle}
+        alert(`Budget Estimate:\n
+Travelers : ${groupSize} person(s) [${travelerType}, ${travelStyle}]
+Duration  : ${numDays} day(s)
+Rate      : \u20b9${dailyCostPerPerson}/person/day
 ---------------------------------
-Travel Cost (Round Trip): ₹${travelCost.toFixed(0)}
-(${distance.toFixed(0)} km * 2 * ₹${costPerKm}/km)
-
-Lodging/Food Cost: ₹${totalDailyCost.toFixed(0)}
-(${numDays} days * ₹${dailyCostPerPerson}/day * ${groupSize} person/s)
----------------------------------
-Total Estimated Budget: ₹${estimatedBudget.toFixed(0)}
-        `);
+Total     : \u20b9${estimatedBudget.toFixed(0)}
+(covers stay, food & local transport)`);
     }
   },
 
@@ -843,7 +833,7 @@ Total Estimated Budget: ₹${estimatedBudget.toFixed(0)}
         App.State.watchId = null;
       }
       if (App.State.routeControl) {
-        if (App.State.map) App.State.map.removeControl(App.Content);
+        if (App.State.map) App.State.map.removeControl(App.State.routeControl); // FIX: was App.Content (typo)
         App.State.routeControl = null;
       }
       if (App.State.liveMarker) {
