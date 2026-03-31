@@ -708,7 +708,7 @@ const App = {
     /**
      * NEW: Smart Budget Estimator
      */
-    estimateBudget: function() {
+    estimateBudget: async function() {
         // 1. Get number of days from trip dates
         const startDateStr = App.Util.getVal('start_date');
         const endDateStr = App.Util.getVal('end_date');
@@ -724,22 +724,47 @@ const App = {
 
         // 2. Get traveler profile
         const travelerType = document.querySelector('input[name="traveler_type"]:checked').value;
-        const travelStyle = document.querySelector('input[name="travel_style"]:checked').value;
         const groupSize = (travelerType === 'group') ? (parseInt(App.Elements.group_size.value) || 1) : 1;
+        const travelStyle = document.querySelector('input[name="travel_style"]:checked').value;
+        const foodType = document.querySelector('input[name="food_type"]:checked').value;
 
-        // 3. Calculate directly: daily rate × persons × days
-        const dailyCostPerPerson = this.Profiles[travelerType][travelStyle];
-        const estimatedBudget = dailyCostPerPerson * groupSize * numDays;
+        App.Util.setVal('budget', 'Loading...');
 
-        // 4. Fill the budget field
-        App.Util.setVal('budget', estimatedBudget.toFixed(0));
-        alert(`Budget Estimate:\n
-Travelers : ${groupSize} person(s) [${travelerType}, ${travelStyle}]
+        // 3. Request ML Budget Prediction
+        try {
+            const response = await fetch('/api/predict-budget', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    days: numDays,
+                    traveler_type: travelerType,
+                    group_size: groupSize,
+                    travel_style: travelStyle,
+                    food_type: foodType
+                })
+            });
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                const estimatedBudget = data.estimated_budget;
+                // 4. Fill the budget field
+                App.Util.setVal('budget', estimatedBudget);
+                alert(`ML Budget Estimate:\n
+Travelers : ${groupSize} person(s) [${travelerType}, Hotel: ${travelStyle}, Food: ${foodType}]
 Duration  : ${numDays} day(s)
-Rate      : ₹${dailyCostPerPerson}/person/day
+Base Rate : ₹${data.cost_per_person}/person for ${numDays} days
 ---------------------------------
-Total     : ₹${estimatedBudget.toFixed(0)}
+Total Estimated Budget: ₹${estimatedBudget}
 (covers stay, food & local transport)`);
+            } else {
+                alert("Error predicting budget: " + data.message);
+                App.Util.setVal('budget', '');
+            }
+        } catch (err) {
+            console.error("estimateBudget error:", err);
+            alert("Failed to reach ML API (see console)");
+            App.Util.setVal('budget', '');
+        }
     }
   },
 

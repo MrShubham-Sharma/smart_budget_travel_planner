@@ -3,6 +3,7 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for, s
 from werkzeug.security import generate_password_hash, check_password_hash
 import database  # Your enhanced database.py
 import config    # Our new config file
+from ml_budget import budget_model # Our new Pure-Python ML Budget Estimator
 
 app = Flask(__name__)
 # Load configuration from config.py
@@ -317,6 +318,41 @@ def get_expenses_api(trip_id):
         "trip_budget": trip_budget,
         "remaining_budget": remaining_budget
     })
+
+@app.route('/api/predict-budget', methods=['POST'])
+def predict_budget_api():
+    """API endpoint to predict budget using our custom ML model."""
+    if not request.is_json:
+        return jsonify({"status": "error", "message": "Invalid request: Must be JSON"}), 400
+
+    data = request.get_json()
+    try:
+        days = int(data.get('days', 1))
+        group_size = int(data.get('group_size', 1))
+        hotel_style = data.get('travel_style', 'mid') # 'budget', 'mid', 'luxury'
+        food_type = data.get('food_type', 'casual')   # 'street', 'casual', 'fine'
+
+        if days <= 0 or group_size <= 0:
+            return jsonify({"status": "error", "message": "Days and group size must be positive"}), 400
+
+        # Predict base cost per person for these days
+        estimated_cost_per_person = budget_model.predict(days, hotel_style, food_type)
+        
+        # Calculate final total cost based on group size
+        # We can apply a 10% discount for sharing rooms if group_size > 1
+        if group_size > 1:
+            total_budget = estimated_cost_per_person * group_size * 0.90
+        else:
+            total_budget = estimated_cost_per_person * group_size
+
+        return jsonify({
+            "status": "success",
+            "estimated_budget": total_budget,
+            "cost_per_person": estimated_cost_per_person,
+            "days": days
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 # ------------------
 # 5. PLACEHOLDER PAGES
