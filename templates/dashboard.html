@@ -177,7 +177,16 @@
       </div>
       </div>
 
-      <div id="map"></div>
+      <div id="map" style="position: relative;">
+          <!-- Custom ML ETA Floating Box -->
+          <div id="route-summary" style="display:none; position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 1000; background: rgba(10, 15, 20, 0.85); padding: 15px 25px; border-radius: 15px; backdrop-filter: blur(15px); color: white; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.7); border: 1px solid rgba(255,255,255,0.1); width: 90%; max-width: 400px; pointer-events: none;">
+              <div style="font-size: 0.9rem; margin-bottom: 5px; color: #ccc;">📍 Distance left: <span id="route-dist" style="font-weight: bold; color: var(--color-primary);">-- km</span></div>
+              <div style="font-size: 1.1rem; font-weight: bold; line-height: 1.4;">
+                 Arrival Date & Time:<br>
+                 <span id="route-eta" style="color: #49d861; font-size: 1.25rem;">--</span>
+              </div>
+          </div>
+      </div>
     </div>
   </div>
 
@@ -186,6 +195,15 @@
       <span class="close" onclick="if(window.App && window.App.Track) App.Track.closeTripSelector()">&times;</span>
       <h2 id="live-selector-title">Select a Trip to Track</h2>
       <p style="opacity: 0.8;">Choose any of your planned trips to start live tracking.</p>
+      
+      <div style="margin: 15px 0; text-align: left; display: none;">
+          <!-- Intentionally hidden per user request to restrict to Driving mode only -->
+          <label for="live_travel_mode" style="font-weight: bold; font-size: 0.9rem;">Travel Mode:</label>
+          <select id="live_travel_mode" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-family: 'Plus Jakarta Sans', sans-serif;">
+              <option value="driving">🚗 Driving</option>
+          </select>
+      </div>
+
       <ul id="liveTrackTripsList" class="my-trips-list-container" style="max-height: 400px; overflow-y: auto;">
         <li>Loading your trips...</li>
       </ul>
@@ -288,5 +306,12 @@
   
   <script src="{{ url_for('static', filename='js/chatbot.js') }}"></script>
   <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+  <!-- Floating Terms & Conditions Link -->
+  <div style="position: fixed; bottom: 10px; left: 15px; font-size: 0.75rem; z-index: 1000;">
+      <a href="#" onclick="alert('Terms & Conditions:\n\n1. This app provides travel estimations using machine learning. Do not rely exclusively on this for critical timing.\n2. We are not liable for delayed trips or inaccurate Overpass API geographic data.\n3. Stay safe and enjoy your travels!')" style="color: rgba(255,255,255,0.6); text-decoration: none; font-family: 'Inter', sans-serif;">
+          Terms & Conditions
+      </a>
+  </div>
+
 </body>
 </html>

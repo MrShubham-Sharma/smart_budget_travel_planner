@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+
 /* ---------------------------------
  * 🎨 GLOBAL STYLES & VARIABLES
  * --------------------------------- */
@@ -46,7 +48,7 @@
 body,
 html {
   height: 100%;
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   color: var(--color-text-light);
   overflow-x: hidden; /* Prevent horizontal scroll */
 }
@@ -55,17 +57,17 @@ html {
  * 2. AUTH PAGES (Login & Signup)
  * --------------------------------- */
 
-/* 🔹 Page-specific Backgrounds */
+/* 🔹 Page-specific Backgrounds (Enhanced with Ken Burns effect) */
 .login-page {
-  background: url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1350&q=80')
-    no-repeat center center fixed;
-  background-size: cover;
+  background: url('https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed;
+  background-size: 150% 150%;
+  animation: bgPan 60s linear infinite alternate;
 }
 
 .signup-page {
-  background: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1350&q=80')
-    no-repeat center center fixed;
-  background-size: cover;
+  background: url('https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed;
+  background-size: 150% 150%;
+  animation: bgPan 60s linear infinite alternate;
 }
 
 /* 🔹 Auth Overlay */
@@ -86,12 +88,15 @@ html {
   width: 900px;
   max-width: 95%;
   min-height: 500px;
-  border-radius: var(--border-radius-main);
+  border-radius: 25px; /* Softer radius */
   overflow: hidden;
-  background: var(--bg-glass-1);
-  backdrop-filter: blur(15px);
-  box-shadow: var(--shadow-main);
-  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.08); /* Darker glass */
+  backdrop-filter: blur(25px) saturate(150%);
+  -webkit-backdrop-filter: blur(25px) saturate(150%);
+  box-shadow: 0 25px 45px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform: translateY(20px);
+  animation: floatUp 1s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
 
 /* 🔹 Left Panel (Info) */
@@ -187,28 +192,26 @@ html {
  * 3. DASHBOARD PAGE
  * --------------------------------- */
 .dashboard {
-  background: url('https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1350&q=80')
-    no-repeat center center fixed;
-  background-size: cover;
+  background: url('https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1350&q=80') no-repeat center center fixed;
+  background-size: 150% 150%;
+  animation: bgPan 40s linear infinite alternate;
 }
 
 /* 🔹 Dashboard Navbar */
 .dashboard .top-nav {
-  background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)),
-    url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1350&q=80')
-      no-repeat center center;
-  background-size: cover;
-  padding: 20px 50px;
+  background: rgba(10, 15, 20, 0.4);
+  padding: 15px 40px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-radius: 0 0 25px 25px;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(5px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   position: sticky;
   top: 0;
   z-index: 10;
-  animation: slideDown 0.8s ease-in;
+  animation: slideDown 0.8s ease-out forwards;
 }
 
 .nav-logo {
@@ -369,12 +372,21 @@ button:hover {
   border-radius: var(--border-radius-main);
   overflow: hidden;
   text-align: center;
-  transition: transform 0.4s ease, box-shadow 0.4s ease; /* ENHANCED */
-  box-shadow: 0 5px 20px var(--color-text-shadow);
+  /* Ultra-smooth physics-based cubic bezier transition */
+  transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.6s ease, border-color 0.4s ease; 
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
   background: var(--bg-glass-1);
-  backdrop-filter: blur(5px);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(255,255,255,0.05); /* Subtle glass edge */
   cursor: pointer;
+  animation: floatUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
+
+.card:nth-child(1) { animation-delay: 0.1s; }
+.card:nth-child(2) { animation-delay: 0.25s; }
+.card:nth-child(3) { animation-delay: 0.4s; }
+.card:nth-child(4) { animation-delay: 0.55s; }
+.card:nth-child(5) { animation-delay: 0.7s; }
 
 .card-bg {
   position: absolute;
@@ -421,22 +433,25 @@ button:hover {
 }
 
 .card:hover {
-  transform: translateY(-10px) rotateX(5deg); /* ENHANCED 3D Lift */
-  box-shadow: var(--shadow-hover);
+  transform: translateY(-15px) rotateX(8deg) scale(1.03) perspective(1000px); /* 3D pop effect */
+  box-shadow: 0 30px 60px rgba(0, 198, 255, 0.4);
+  border: 1px solid rgba(0, 198, 255, 0.5); /* Neon rim lighting */
 }
 
 .card:hover .card-bg {
-  filter: brightness(0.8);
-  transform: scale(1.05);
+  filter: brightness(0.65);
+  transform: scale(1.1) rotate(2deg); /* Twist background slowly */
 }
 
 /* ENHANCED Card hover content animations */
 .card:hover img {
-    transform: scale(1.1);
+    transform: scale(1.15) translateY(-5px);
+    filter: drop-shadow(0 10px 15px rgba(0, 198, 255, 0.6));
 }
 .card:hover h3 {
     transform: scale(1.05);
     color: var(--color-primary);
+    text-shadow: 0 0 15px rgba(0,198,255, 0.8);
 }
 
 .card-active {
@@ -448,52 +463,54 @@ button:hover {
  * 5. MODAL (Trip Planner, Budget)
  * --------------------------------- */
 .modal {
-  display: flex; /* Changed from none */
+  display: flex;
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(5px);
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
   justify-content: center;
   align-items: center;
   z-index: 1000;
-  padding: 20px; /* Padding for small screens */
+  padding: 20px;
   overflow-y: auto;
   
-  /* ENHANCED: Animation */
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.3s ease, visibility 0.3s ease;
+  transition: opacity 0.4s ease, visibility 0.4s ease, backdrop-filter 0.4s ease;
 }
 
-/* ENHANCED: Show class for modal */
 .modal.show {
   opacity: 1;
   visibility: visible;
+  backdrop-filter: blur(15px);
 }
 
 .modal-content {
-  background: var(--bg-glass-1);
-  backdrop-filter: blur(20px);
-  border-radius: var(--border-radius-main);
+  background: rgba(20, 25, 30, 0.6);
+  backdrop-filter: blur(30px) saturate(200%);
+  -webkit-backdrop-filter: blur(30px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 25px;
   width: 500px;
   max-width: 95%;
-  padding: 30px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  padding: 35px;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.8), inset 0 0 0 1px rgba(255, 255, 255, 0.1);
   color: var(--color-text-light);
   text-align: left;
-  position: relative; /* For autocomplete positioning */
-  margin: auto; /* Center in viewport */
+  position: relative;
+  margin: auto;
   
-  /* ENHANCED: Animation */
-  transform: translateY(-20px);
-  transition: transform 0.3s ease;
+  transform: scale(0.9) translateY(30px);
+  opacity: 0;
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.4s ease;
 }
 
 .modal.show .modal-content {
-    transform: translateY(0);
+    transform: scale(1) translateY(0);
+    opacity: 1;
 }
 
 .modal-content.wide {
@@ -786,6 +803,17 @@ button:hover {
     transform: translateY(0);
     opacity: 1;
   }
+}
+
+@keyframes floatUp {
+  0% { opacity: 0; transform: translateY(40px) scale(0.98); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes bgPan {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 /* ---------------------------------

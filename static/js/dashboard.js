@@ -586,6 +586,44 @@ const App = {
         group: { budget: 600,  mid: 1500, luxury: 4500 }  // Per person (shared accommodation discount)
     },
     
+    estimateBudget: async function() {
+        const start_date = App.Util.getVal('start_date');
+        const end_date = App.Util.getVal('end_date');
+        const group_size = parseInt(App.Util.getVal('group_size')) || 1;
+        const travel_style = document.querySelector('input[name="travel_style"]:checked')?.value || 'mid';
+        const food_type = document.querySelector('input[name="food_type"]:checked')?.value || 'casual';
+        
+        // Calculate days cleanly
+        let days = 1;
+        if (start_date && end_date) {
+            const start = new Date(start_date);
+            const end = new Date(end_date);
+            if(end >= start) {
+               days = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
+            }
+        }
+        
+        App.Util.setVal('budget', 'Loading ML...');
+        
+        try {
+            const res = await fetch('/api/predict-budget', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ days, group_size, travel_style, food_type })
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                App.Util.setVal('budget', Math.ceil(data.estimated_budget));
+            } else {
+                App.Util.setVal('budget', '');
+                console.error("Budget ML Error:", data.message);
+            }
+        } catch(e) {
+            console.error(e);
+            App.Util.setVal('budget', '');
+        }
+    },
+    
     openBudgetPlanner: function() {
       if (!App.State.allTrips || App.State.allTrips.length === 0) {
           return App.Util.showModal(`<h3>No Trips Found</h3><p>Please plan a trip first before adding expenses.</p><div class="modal-buttons text-center"><button onclick="App.Util.closeModal()" class="btn-close">Close</button></div>`);
@@ -928,15 +966,27 @@ Total Estimated Budget: ₹${estimatedBudget}
         if (distanceKm <= 0) return;
         try {
             const hour = new Date().getHours();
+            const mode = document.getElementById('live_travel_mode') ? document.getElementById('live_travel_mode').value : 'driving';
+            
             const res = await fetch('/api/predict-eta', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ distance_km: distanceKm, hour_of_day: hour, travel_mode: 'driving' })
+                body: JSON.stringify({ distance_km: distanceKm, hour_of_day: hour, travel_mode: mode })
             });
             const data = await res.json();
             if (data.status === 'success') {
-                const eta = new Date(Date.now() + data.duration_minutes * 60000);
-                if (App.Elements['route-eta']) App.Elements['route-eta'].innerHTML = `${eta.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}  <span style="color:var(--primary); font-size:0.8rem;">(via ML)</span>`;
+                const durationMins = data.duration_minutes;
+                const eta = new Date(Date.now() + durationMins * 60000);
+                
+                // Format explicitly with Date (e.g. 11/12/2026, 04:30 PM)
+                let dateStr = eta.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                let timeStr = eta.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                if (App.Elements['route-eta']) {
+                    App.Elements['route-summary'].style.display = 'block';
+                    App.Elements['route-eta'].innerHTML = `${timeStr} (${dateStr})
+                                                           <br><span style="color:#aaa; font-size:0.9rem; font-weight: normal;">${Math.ceil(durationMins)} min remaining</span>`;
+                }
             }
         } catch(e) { console.error("ML ETA failed", e); }
     },
@@ -982,13 +1032,14 @@ Total Estimated Budget: ₹${estimatedBudget}
   },
 
   Nearby: {
-    openNearbyAttractions: async function () {
+    openNearbyAttractions: async function (filterType = 'attractions') {
       let lat, lon, midLat, midLon, endLat, endLon;
       let queryMode = 'destination';
       const radius = 3000; // Reduced to 3km to prevent Overpass timeouts!
       let query = `[out:json][timeout:15];(`;
       
-      App.Util.showModal('<h3><i class="fas fa-search-location"></i> Finding famous places...</h3>');
+      let title = filterType === 'amenities' ? 'Finding nearby facilities...' : 'Finding famous places...';
+      App.Util.showModal(`<h3><i class="fas fa-search-location"></i> ${title}</h3>`);
 
       // 1. Check if a live route is active
       if (App.State.routeControl && App.State.routeControl._routes) {
@@ -1004,15 +1055,15 @@ Total Estimated Budget: ₹${estimatedBudget}
             endLon = waypoints[waypoints.length - 1].latLng.lng;
             queryMode = 'route';
             
-            query += this.getOverpassQuery(lat, lon, radius) + 
-                     this.getOverpassQuery(midLat, midLon, radius) + 
-                     this.getOverpassQuery(endLat, endLon, radius);
+            query += this.getOverpassQuery(lat, lon, radius, filterType) + 
+                     this.getOverpassQuery(midLat, midLon, radius, filterType) + 
+                     this.getOverpassQuery(endLat, endLon, radius, filterType);
             
       // 2. Fallback: Check for a planned destination (from Plan a Trip)
       } else if (App.Util.getVal('latitude') && App.Util.getVal('longitude')) {
             lat = parseFloat(App.Util.getVal('latitude'));
             lon = parseFloat(App.Util.getVal('longitude'));
-            query += this.getOverpassQuery(lat, lon, radius);
+            query += this.getOverpassQuery(lat, lon, radius, filterType);
             
       // 3. Fallback: Get user's current location
       } else {
@@ -1020,7 +1071,7 @@ Total Estimated Budget: ₹${estimatedBudget}
               const pos = await App.Util.getCurrentPosition();
               lat = pos.coords.latitude;
               lon = pos.coords.longitude;
-              query += this.getOverpassQuery(lat, lon, radius);
+              query += this.getOverpassQuery(lat, lon, radius, filterType);
               queryMode = 'current_location';
           } catch (err) {
               App.Util.showModal(`<h3>Error</h3><p>Could not get your location. Please enable location services or plan a trip first.</p><div class="modal-buttons"><button onclick="App.Budget.closeBudgetTracker()" class="btn-close">Close</button></div>`);
@@ -1069,19 +1120,35 @@ Total Estimated Budget: ₹${estimatedBudget}
     },
     
     // Helper to build complex Overpass queries
-    getOverpassQuery: function(lat, lon, radius) {
-        // Find famous places
-        return `
-          node(around:${radius},${lat},${lon})[tourism~"attraction|museum|viewpoint|monument|theme_park|gallery|zoo"];
-          node(around:${radius},${lat},${lon})[historic~"castle|fort|ruins|archaeological_site|monument|memorial"];
-        `;
+    getOverpassQuery: function(lat, lon, radius, filterType = 'attractions') {
+        let q = '';
+        if (filterType === 'attractions' || filterType === 'all') {
+            q += `
+              node(around:${radius},${lat},${lon})[tourism~"attraction|museum|viewpoint|monument|theme_park|gallery|zoo"];
+              node(around:${radius},${lat},${lon})[historic~"castle|fort|ruins|archaeological_site|monument|memorial"];
+            `;
+        }
+        if (filterType === 'amenities' || filterType === 'all') {
+            q += `
+              node(around:${radius},${lat},${lon})[amenity~"atm|fuel|restaurant|cafe|hospital"];
+            `;
+        }
+        return q;
     },
     
     // Helper function for formatting nearby places
     formatPlace: function(e) {
         const name = e.tags?.name || "Unnamed";
+        // FILTER: Skip 'unknown' or unnamed places to keep UI clean
+        if (name === "Unnamed" || name.trim() === "") return '';
+        
         let type = e.tags?.tourism || e.tags?.amenity || e.tags?.historic || '';
         type = type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()); // Capitalize
+        
+        // Extract exact coordinates to build Google Maps Link
+        const lat = e.lat || e.center?.lat;
+        const lon = e.lon || e.center?.lon;
+        const mapLink = lat && lon ? `https://www.google.com/maps/search/?api=1&query=${lat},${lon}` : '#';
         
         let icon = 'fa-map-pin'; // default
         if (['Fuel'].includes(type)) icon = 'fa-gas-pump';
@@ -1090,9 +1157,11 @@ Total Estimated Budget: ₹${estimatedBudget}
         if (['Museum', 'Monument', 'Castle', 'Fort', 'Ruins', 'Archaeological Site', 'Memorial', 'Gallery'].includes(type)) icon = 'fa-landmark';
         if (['Viewpoint', 'Attraction', 'Theme Park', 'Zoo'].includes(type)) icon = 'fa-binoculars';
         
-        return `<li>
-                    <strong><i class="fas ${icon}"></i> ${App.Util.escapeHtml(name)}</strong>
-                    <small>- ${App.Util.escapeHtml(type)}</small>
+        return `<li style="padding: 10px; border-bottom: 1px solid #111; margin-bottom: 5px; background: rgba(0,0,0,0.1); border-radius: 8px;">
+                    <a href="${mapLink}" target="_blank" style="text-decoration:none; color:inherit; display:block;">
+                        <strong><i class="fas ${icon}" style="color:var(--primary); margin-right: 5px;"></i> ${App.Util.escapeHtml(name)}</strong><br>
+                        <small style="color:#aaa;">${App.Util.escapeHtml(type)} • Click to Open Maps <i class="fas fa-external-link-alt" style="font-size:0.7em;"></i></small>
+                    </a>
                  </li>`;
     }
   },
@@ -1178,8 +1247,30 @@ Total Estimated Budget: ₹${estimatedBudget}
           }
       },
       open: function() {
-          if (App.Elements.chatbotModal) App.Elements.chatbotModal.classList.add('show');
+          if (App.Elements.chatbotModal) {
+              App.Elements.chatbotModal.classList.add('show');
+              // Append generic suggestion chips if they don't exist yet
+              if (!document.getElementById('chatbot-chips')) {
+                 const chipsDiv = document.createElement('div');
+                 chipsDiv.id = 'chatbot-chips';
+                 chipsDiv.style.cssText = "display: flex; gap: 8px; padding: 10px; overflow-x: auto; background: rgba(0,0,0,0.2);";
+                 chipsDiv.innerHTML = `
+                    <button class="chip" onclick="App.Chatbot.sendQuick('Find Nearby Facilities')" style="white-space:nowrap; padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; background: var(--primary); border: none; color:auto; cursor:pointer;">🏥 Facilities</button>
+                    <button class="chip" onclick="App.Chatbot.sendQuick('Safety Tips')" style="white-space:nowrap; padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; background: var(--primary); border: none; color:auto; cursor:pointer;">🛡️ Safety</button>
+                    <button class="chip" onclick="App.Chatbot.sendQuick('Where am I?')" style="white-space:nowrap; padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; background: var(--primary); border: none; color:auto; cursor:pointer;">📍 Location</button>
+                 `;
+                 if(App.Elements.chatWindow) {
+                     App.Elements.chatWindow.parentElement.insertBefore(chipsDiv, App.Elements.chatInput.parentElement);
+                 }
+              }
+          }
           if (App.Elements.chatInput) App.Elements.chatInput.focus();
+      },
+      sendQuick: function(text) {
+          if (App.Elements.chatInput) {
+              App.Elements.chatInput.value = text;
+              this.sendMessage();
+          }
       },
       close: function() {
           if (App.Elements.chatbotModal) App.Elements.chatbotModal.classList.remove('show');
@@ -1201,10 +1292,14 @@ Total Estimated Budget: ₹${estimatedBudget}
               const response = this.getResponse(input);
               
               // Check for special commands
-              if (response === 'CMD::NEARBY') {
-                  this.addMessage("Sure! Opening the 'Nearby Attractions' panel for you...", 'bot');
+              if (response === 'CMD::NEARBY_ATTRACTIONS') {
+                  this.addMessage("Sure! Looking up famous places and attractions for you...", 'bot');
                   this.close(); // Close chatbot
-                  App.Nearby.openNearbyAttractions(); // Open nearby
+                  App.Nearby.openNearbyAttractions('attractions'); // Open nearby
+              } else if (response === 'CMD::NEARBY_AMENITIES') {
+                  this.addMessage("Sure! Looking up nearby facilities and ATMs for you...", 'bot');
+                  this.close(); // Close chatbot
+                  App.Nearby.openNearbyAttractions('amenities'); // Open nearby
               } else {
                   this.addMessage(response, 'bot');
               }
