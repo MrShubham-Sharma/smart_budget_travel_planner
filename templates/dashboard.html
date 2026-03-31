@@ -94,6 +94,7 @@
         </button>
       </div>
 
+      <div id="trip-planner-fields">
       <label for="start_location">Start Location:</label>
       <input type="text" id="start_location" placeholder="Enter starting point">
       <ul id="start_suggestions"></ul>
@@ -174,8 +175,23 @@
         <button type="button" onclick="addTrip()">Add Trip</button>
         <button type="button" onclick="closeTripPlanner()" class="btn-close">Close</button>
       </div>
+      </div>
 
       <div id="map"></div>
+    </div>
+  </div>
+
+  <div id="liveTrackSelectorModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="live-selector-title">
+    <div class="modal-content">
+      <span class="close" onclick="if(window.App && window.App.Track) App.Track.closeTripSelector()">&times;</span>
+      <h2 id="live-selector-title">Select a Trip to Track</h2>
+      <p style="opacity: 0.8;">Choose any of your planned trips to start live tracking.</p>
+      <ul id="liveTrackTripsList" class="my-trips-list-container" style="max-height: 400px; overflow-y: auto;">
+        <li>Loading your trips...</li>
+      </ul>
+      <div class="modal-buttons text-center">
+        <button type="button" onclick="if(window.App && window.App.Track) App.Track.closeTripSelector()" class="btn-close">Cancel</button>
+      </div>
     </div>
   </div>
 

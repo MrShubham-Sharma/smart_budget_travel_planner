@@ -42,13 +42,6 @@ def dashboard():
         return redirect(url_for('login_page'))
     return render_template('dashboard.html', user_name=session.get('user_name'))
 
-# NEW: Dedicated route for the live tracker page
-@app.route('/live-tracker-page')
-def live_tracker_page():
-    """Serve the dedicated live tracking map."""
-    if not session.get('user_id'):
-        return redirect(url_for('login_page'))
-    return render_template('live.html', user_name=session.get('user_name'))
 
 @app.route('/logout')
 def logout():
@@ -354,45 +347,32 @@ def predict_budget_api():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# ------------------
-# 5. PLACEHOLDER PAGES
-# ------------------
-# (You will need to create these .html files in your 'templates' folder)
-
-@app.route('/live-tracker')
-def live_tracker():
-    if not session.get('user_id'): return redirect(url_for('login_page'))
-    return render_template('live_tracker.html', user_name=session.get('user_name'))
-
-@app.route('/budget-planner')
-def budget_planner():
-    if not session.get('user_id'): return redirect(url_for('login_page'))
-    return render_template('budget_planner.html', user_name=session.get('user_name'))
-    
-@app.route('/budget-tracker')
-def budget_tracker():
-    if not session.get('user_id'): return redirect(url_for('login_page'))
-    return render_template('budget_tracker.html', user_name=session.get('user_name'))
-
-@app.route('/nearby-attractions')
-def nearby_attractions():
-    if not session.get('user_id'): return redirect(url_for('login_page'))
-    return render_template('nearby_attractions.html', user_name=session.get('user_name'))
-
-@app.route('/travel-tips')
-def travel_tips():
-    if not session.get('user_id'): return redirect(url_for('login_page'))
-    return render_template('travel_tips.html', user_name=session.get('user_name'))
-
-@app.route('/chatbot')
-def chatbot():
-    if not session.get('user_id'): return redirect(url_for('login_page'))
-    return render_template('chatbot.html', user_name=session.get('user_name'))
-
 
 # ------------------
 # 6. RUN APP
 # ------------------
+
+from ml_eta import eta_model
+
+@app.route('/api/predict-eta', methods=['POST'])
+def predict_eta_api():
+    if 'user_id' not in session:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    
+    try:
+        data = request.json
+        distance_km = float(data.get('distance_km', 0))
+        hour_of_day = int(data.get('hour_of_day', 12))
+        mode = data.get('travel_mode', 'driving')
+        
+        duration_mins = eta_model.predict_duration(distance_km, hour_of_day, mode)
+        
+        return jsonify({
+            "status": "success",
+            "duration_minutes": duration_mins
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
 
 if __name__ == "__main__":
     app.run(debug=app.config['DEBUG'])
