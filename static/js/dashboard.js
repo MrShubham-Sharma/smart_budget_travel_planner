@@ -353,6 +353,9 @@ const App = {
     clearTripForm: function () {
       ['trip_name', 'destination', 'start_location', 'budget', 'latitude', 'longitude', 'start_lat', 'start_lon', 'start_date', 'end_date']
         .forEach(id => App.Util.setVal(id, ''));
+      // Reset stay_type radio to default
+      const defaultStay = document.getElementById('stay_budget_hotel');
+      if (defaultStay) defaultStay.checked = true;
       if (App.State.destMarker && App.State.map) {
         App.State.map.removeLayer(App.State.destMarker);
         App.State.destMarker = null;
@@ -360,6 +363,7 @@ const App = {
     },
 
     addTrip: async function () {
+      const stayTypeEl = document.querySelector('input[name="stay_type"]:checked');
       const trip = {
         trip_name: App.Util.getVal("trip_name"),
         destination: App.Util.getVal("destination"),
@@ -367,7 +371,8 @@ const App = {
         end_date: App.Util.getVal("end_date"),
         budget: App.Util.getVal("budget") || 0,
         latitude: App.Util.getVal("latitude"),
-        longitude: App.Util.getVal("longitude")
+        longitude: App.Util.getVal("longitude"),
+        stay_type: stayTypeEl ? stayTypeEl.value : "budget_hotel"
       };
 
       if (!trip.trip_name || !trip.destination || !trip.latitude || !trip.longitude) {
@@ -1059,138 +1064,291 @@ Total Estimated Budget: ₹${estimatedBudget}
   },
 
   Nearby: {
+    // ─── Nearby Places with REAL Names (Wikipedia Geosearch) ─────────────────
+    // Uses Wikipedia's free Geosearch API — no API key, fast CDN.
+    // Returns actual named places (temples, forts, parks, etc.) near GPS coords.
     openNearbyAttractions: async function (filterType = 'attractions') {
-      let lat, lon, midLat, midLon, endLat, endLon;
-      let queryMode = 'destination';
-      const radius = 3000; // Reduced to 3km to prevent Overpass timeouts!
-      let query = `[out:json][timeout:15];(`;
-      
-      let title = filterType === 'amenities' ? 'Finding nearby facilities...' : 'Finding famous places...';
-      App.Util.showModal(`<h3><i class="fas fa-search-location"></i> ${title}</h3>`);
 
-      // 1. Check if a live route is active
-      if (App.State.routeControl && App.State.routeControl._routes) {
-            const route = App.State.routeControl._routes[0];
-            const waypoints = App.State.routeControl.getWaypoints();
-            const midpoint = route.coordinates[Math.floor(route.coordinates.length / 2)];
-            
-            lat = waypoints[0].latLng.lat;
-            lon = waypoints[0].latLng.lng;
-            midLat = midpoint.lat;
-            midLon = midpoint.lng;
-            endLat = waypoints[waypoints.length - 1].latLng.lat;
-            endLon = waypoints[waypoints.length - 1].latLng.lng;
-            queryMode = 'route';
-            
-            query += this.getOverpassQuery(lat, lon, radius, filterType) + 
-                     this.getOverpassQuery(midLat, midLon, radius, filterType) + 
-                     this.getOverpassQuery(endLat, endLon, radius, filterType);
-            
-      // 2. Fallback: Check for a planned destination (from Plan a Trip)
-      } else if (App.Util.getVal('latitude') && App.Util.getVal('longitude')) {
-            lat = parseFloat(App.Util.getVal('latitude'));
-            lon = parseFloat(App.Util.getVal('longitude'));
-            query += this.getOverpassQuery(lat, lon, radius, filterType);
-            
-      // 3. Fallback: Get user's current location
+      const SKELETON = [...Array(5)].map(() => `
+        <div style="background:rgba(255,255,255,0.06);border-radius:10px;padding:14px;
+                    display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+          <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.1);
+                      animation:pulse 1.4s ease infinite;flex-shrink:0;"></div>
+          <div style="flex:1;">
+            <div style="height:12px;background:rgba(255,255,255,0.1);border-radius:6px;
+                        margin-bottom:8px;animation:pulse 1.4s ease infinite;"></div>
+            <div style="height:10px;width:55%;background:rgba(255,255,255,0.07);border-radius:6px;
+                        animation:pulse 1.4s ease infinite;"></div>
+          </div>
+        </div>`).join('');
+
+      const title = filterType === 'amenities' ? '🏥 Nearby Facilities' : '🗺️ Famous & Historical Places';
+
+      // Show skeleton immediately
+      App.Util.showModal(`
+        <h3 style="margin-bottom:6px;">${title}</h3>
+        <p style="color:#64748b;font-size:0.82rem;margin:0 0 14px;">Fetching real places near you…</p>
+        ${SKELETON}
+      `);
+
+      // ── Get coordinates ──
+      let lat = null, lon = null;
+      if (App.Util.getVal('latitude') && App.Util.getVal('longitude')) {
+          lat = parseFloat(App.Util.getVal('latitude'));
+          lon = parseFloat(App.Util.getVal('longitude'));
+      } else if (App._userLat) {
+          lat = App._userLat;
+          lon = App._userLon;
       } else {
           try {
               const pos = await App.Util.getCurrentPosition();
               lat = pos.coords.latitude;
               lon = pos.coords.longitude;
-              query += this.getOverpassQuery(lat, lon, radius, filterType);
-              queryMode = 'current_location';
-          } catch (err) {
-              App.Util.showModal(`<h3>Error</h3><p>Could not get your location. Please enable location services or plan a trip first.</p><div class="modal-buttons"><button onclick="App.Budget.closeBudgetTracker()" class="btn-close">Close</button></div>`);
-              return;
-          }
+              App._userLat = lat;
+              App._userLon = lon;
+          } catch (e) { /* no GPS */ }
       }
-      
-      query += `);out center 40;`; // Get 40 results
 
+      if (!lat) {
+          App.Util.showModal(`
+            <h3>${title}</h3>
+            <p style="color:#f87171;">📍 Could not get your location. Please enable location services or plan a trip first.</p>
+            <div class="modal-buttons"><button onclick="App.Budget.closeBudgetTracker()" class="btn-close">Close</button></div>`);
+          return;
+      }
+
+      // ── Wikipedia Geosearch API ──
+      // Returns up to 30 named Wikipedia articles near coordinates
+      // Completely free, no API key, fast Wikipedia CDN
+      const radius    = 10000; // 10km
+      const limit     = 30;
+      const wikiUrl   = `https://en.wikipedia.org/w/api.php?` +
+          `action=query&list=geosearch` +
+          `&gscoord=${lat}|${lon}` +
+          `&gsradius=${radius}` +
+          `&gslimit=${limit}` +
+          `&format=json&origin=*`;
+
+      let places = [];
       try {
-        // Try Kumi Systems first (often faster and less rate-limited than main overpass-api.de)
-        const url = 'https://overpass.kumi.systems/api/interpreter';
-        let res = await fetch(url, { method: 'POST', body: query });
-        
-        // Fallback if Kumi fails
-        if (!res.ok) {
-             res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: query });
-        }
-        
-        const data = await res.json();
-        let html = `<h3>Famous Places & Attractions</h3>`;
-
-        if (data.elements && data.elements.length) {
-            html += '<ul style="list-style:none; padding: 0; max-height: 400px; overflow-y: auto;">';
-            if (queryMode === 'route') {
-                // Group results
-                html += "<h4><i class='fas fa-map-marker-alt'></i> Near Your Start</h4>";
-                data.elements.filter(e => App.Util.isNear(e, lat, lon)).forEach(e => html += this.formatPlace(e));
-                html += "<h4><i class='fas fa-route'></i> Along Your Route</h4>";
-                data.elements.filter(e => App.Util.isNear(e, midLat, midLon)).forEach(e => html += this.formatPlace(e));
-                html += "<h4><i class='fas fa-flag-checkered'></i> Near Your Destination</h4>";
-                data.elements.filter(e => App.Util.isNear(e, endLat, endLon)).forEach(e => html += this.formatPlace(e));
-            } else {
-                html += `<h4><i class='fas fa-map-marker-alt'></i> Near ${queryMode === 'destination' ? 'Your Destination' : 'You'}</h4>`;
-                data.elements.forEach(e => html += this.formatPlace(e));
-            }
-            html += '</ul>';
-        } else {
-          html += `<p>No nearby attractions or facilities found.</p>`;
-        }
-        App.Util.showModal(html + `<div class="modal-buttons text-center"><button onclick="App.Budget.closeBudgetTracker()" class="btn-close">Close</button></div>`);
+          const res  = await fetch(wikiUrl);
+          const data = await res.json();
+          places = data?.query?.geosearch || [];
       } catch (err) {
-        console.error("openNearbyAttractions error:", err);
-        App.Util.showModal('<h3>Error</h3><p>Failed to fetch nearby attractions. The Overpass API may be busy. Please try again in a moment.</p><div class="modal-buttons"><button onclick="App.Budget.closeBudgetTracker()" class="btn-close">Close</button></div>');
+          console.error('Wikipedia Geosearch failed:', err);
       }
+
+      // ── Smart icon based on place name keywords ──
+      const getIcon = (name) => {
+          const n = name.toLowerCase();
+          if (/fort|killa|qila|castle|palace|mahal/.test(n))        return { icon: 'fa-chess-rook',       color: '#f59e0b' };
+          if (/temple|mandir|devi|shiva|ganesh|hanuman|ram|kali|balaji|tirupati|jain|gurudwara|gurdwara/.test(n))
+                                                                     return { icon: 'fa-place-of-worship',  color: '#a78bfa' };
+          if (/mosque|masjid|dargah|tomb|mazar/.test(n))            return { icon: 'fa-place-of-worship',  color: '#34d399' };
+          if (/church|cathedral|chapel/.test(n))                    return { icon: 'fa-place-of-worship',  color: '#60a5fa' };
+          if (/museum|gallery|art|heritage/.test(n))                 return { icon: 'fa-landmark',          color: '#38bdf8' };
+          if (/ruin|archaeo|monument|memorial|pillar|stupa/.test(n)) return { icon: 'fa-monument',          color: '#fbbf24' };
+          if (/cave|cavern|lena|gufa/.test(n))                      return { icon: 'fa-mountain',          color: '#6ee7b7' };
+          if (/waterfall|falls|dam|lake|reservoir|river|kund|tirth/.test(n))
+                                                                     return { icon: 'fa-water',              color: '#38bdf8' };
+          if (/park|garden|reserve|sanctuary|wildlife|forest/.test(n))return { icon: 'fa-leaf',            color: '#4ade80' };
+          if (/beach|coast|sea|island/.test(n))                     return { icon: 'fa-umbrella-beach',    color: '#fbbf24' };
+          if (/zoo|safari/.test(n))                                  return { icon: 'fa-paw',               color: '#f472b6' };
+          if (/university|college|school|institute/.test(n))         return { icon: 'fa-graduation-cap',   color: '#818cf8' };
+          if (/hospital|medical|clinic/.test(n))                    return { icon: 'fa-hospital',          color: '#f87171' };
+          if (/market|bazaar|mall|shopping/.test(n))                return { icon: 'fa-shopping-bag',      color: '#fb923c' };
+          if (/stadium|ground|sport/.test(n))                       return { icon: 'fa-trophy',            color: '#fcd34d' };
+          if (/airport|airfield/.test(n))                           return { icon: 'fa-plane',             color: '#38bdf8' };
+          return { icon: 'fa-map-marker-alt', color: 'var(--primary)' };
+      };
+
+      // ── Expose cached places + title so the detail view can rebuild the list ──
+      App.Nearby._cachedPlaces  = places;
+      App.Nearby._cachedTitle   = title;
+      App.Nearby._cachedLat     = lat;
+      App.Nearby._cachedLon     = lon;
+      App.Nearby._getIcon       = getIcon;
+
+      App.Nearby._renderList();
     },
-    
-    // Helper to build complex Overpass queries
-    getOverpassQuery: function(lat, lon, radius, filterType = 'attractions') {
-        let q = '';
-        if (filterType === 'attractions' || filterType === 'all') {
-            q += `
-              node(around:${radius},${lat},${lon})[tourism~"attraction|museum|viewpoint|monument|theme_park|gallery|zoo"];
-              node(around:${radius},${lat},${lon})[historic~"castle|fort|ruins|archaeological_site|monument|memorial"];
-            `;
-        }
-        if (filterType === 'amenities' || filterType === 'all') {
-            q += `
-              node(around:${radius},${lat},${lon})[amenity~"atm|fuel|restaurant|cafe|hospital"];
-            `;
-        }
-        return q;
+
+    // Render the list of places into the modal (called on load and on "Back")
+    _renderList: function() {
+      const places  = App.Nearby._cachedPlaces;
+      const title   = App.Nearby._cachedTitle;
+      const lat     = App.Nearby._cachedLat;
+      const lon     = App.Nearby._cachedLon;
+      const getIcon = App.Nearby._getIcon;
+
+      const items = places.map((p, idx) => {
+          const { icon, color } = getIcon(p.title);
+          const distKm  = (p.dist / 1000).toFixed(1);
+          const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.title)}&query=${p.lat},${p.lon}`;
+
+          return `
+            <div style="display:flex;align-items:center;gap:12px;padding:11px 10px;
+                        background:rgba(255,255,255,0.04);border-radius:10px;margin-bottom:6px;
+                        border:1px solid rgba(255,255,255,0.06);transition:background 0.2s;"
+                 onmouseover="this.style.background='rgba(56,189,248,0.06)'"
+                 onmouseout="this.style.background='rgba(255,255,255,0.04)'">
+              <div style="width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,0.3);
+                          display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="fas ${icon}" style="color:${color};font-size:0.95rem;"></i>
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-weight:600;font-size:0.92rem;white-space:nowrap;
+                            overflow:hidden;text-overflow:ellipsis;">${p.title}</div>
+                <div style="color:#64748b;font-size:0.8rem;margin-top:2px;">
+                  <span style="color:#34d399;">📍 ${distKm} km away</span>
+                </div>
+              </div>
+              <div style="display:flex;gap:6px;flex-shrink:0;">
+                <!-- Info button: fetches Wikipedia summary inline -->
+                <button onclick="App.Nearby._showPlaceDetail(${idx})"
+                        title="See summary"
+                        style="width:30px;height:30px;border-radius:8px;background:rgba(167,139,250,0.15);
+                               border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+                  <i class="fas fa-info-circle" style="color:#a78bfa;font-size:0.85rem;"></i>
+                </button>
+                <!-- Maps button -->
+                <a href="${mapsUrl}" target="_blank" rel="noopener"
+                   title="Open in Google Maps"
+                   style="width:30px;height:30px;border-radius:8px;background:rgba(56,189,248,0.15);
+                          display:flex;align-items:center;justify-content:center;text-decoration:none;">
+                  <i class="fas fa-map-pin" style="color:#38bdf8;font-size:0.8rem;"></i>
+                </a>
+              </div>
+            </div>`;
+      }).join('');
+
+      const distBadge = `<span style="color:#34d399;font-size:0.8rem;">
+        <i class="fas fa-crosshairs"></i> ${lat.toFixed(4)}, ${lon.toFixed(4)} · within 10km
+      </span>`;
+
+      App.Util.showModal(`
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:6px;">
+          <h3 style="margin:0;">${title}</h3>
+          ${distBadge}
+        </div>
+        <p style="color:#64748b;font-size:0.8rem;margin:2px 0 12px;">
+          ${places.length} places found &nbsp;·&nbsp;
+          <i class="fas fa-info-circle" style="color:#a78bfa;"></i> Info
+          &nbsp;
+          <i class="fas fa-map-pin" style="color:#38bdf8;"></i> Maps
+        </p>
+        <div style="max-height:420px;overflow-y:auto;padding-right:4px;">
+          ${items}
+        </div>
+        <div class="modal-buttons" style="margin-top:12px;">
+          <button onclick="App.Budget.closeBudgetTracker()" class="btn-close">Close</button>
+        </div>`);
     },
-    
-    // Helper function for formatting nearby places
-    formatPlace: function(e) {
-        const name = e.tags?.name || "Unnamed";
-        // FILTER: Skip 'unknown' or unnamed places to keep UI clean
-        if (name === "Unnamed" || name.trim() === "") return '';
-        
-        let type = e.tags?.tourism || e.tags?.amenity || e.tags?.historic || '';
-        type = type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()); // Capitalize
-        
-        // Extract exact coordinates to build Google Maps Link
-        const lat = e.lat || e.center?.lat;
-        const lon = e.lon || e.center?.lon;
-        const mapLink = lat && lon ? `https://www.google.com/maps/search/?api=1&query=${lat},${lon}` : '#';
-        
-        let icon = 'fa-map-pin'; // default
-        if (['Fuel'].includes(type)) icon = 'fa-gas-pump';
-        if (['Atm'].includes(type)) icon = 'fa-credit-card';
-        if (['Restaurant', 'Cafe'].includes(type)) icon = 'fa-utensils';
-        if (['Museum', 'Monument', 'Castle', 'Fort', 'Ruins', 'Archaeological Site', 'Memorial', 'Gallery'].includes(type)) icon = 'fa-landmark';
-        if (['Viewpoint', 'Attraction', 'Theme Park', 'Zoo'].includes(type)) icon = 'fa-binoculars';
-        
-        return `<li style="padding: 10px; border-bottom: 1px solid #111; margin-bottom: 5px; background: rgba(0,0,0,0.1); border-radius: 8px;">
-                    <a href="${mapLink}" target="_blank" style="text-decoration:none; color:inherit; display:block;">
-                        <strong><i class="fas ${icon}" style="color:var(--primary); margin-right: 5px;"></i> ${App.Util.escapeHtml(name)}</strong><br>
-                        <small style="color:#aaa;">${App.Util.escapeHtml(type)} • Click to Open Maps <i class="fas fa-external-link-alt" style="font-size:0.7em;"></i></small>
-                    </a>
-                 </li>`;
-    }
+
+    // Show inline Wikipedia summary for a place (no new tab)
+    _showPlaceDetail: async function(idx) {
+      const p       = App.Nearby._cachedPlaces[idx];
+      const getIcon = App.Nearby._getIcon;
+      const { icon, color } = getIcon(p.title);
+      const distKm  = (p.dist / 1000).toFixed(1);
+      const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.title)}&query=${p.lat},${p.lon}`;
+
+      // Show loading state
+      App.Util.showModal(`
+        <button onclick="App.Nearby._renderList()"
+                style="background:none;border:none;color:#38bdf8;cursor:pointer;font-size:0.9rem;margin-bottom:12px;padding:0;display:flex;align-items:center;gap:6px;">
+          <i class="fas fa-arrow-left"></i> Back to list
+        </button>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+          <div style="width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,0.3);
+                      display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <i class="fas ${icon}" style="color:${color};font-size:1.1rem;"></i>
+          </div>
+          <div>
+            <h3 style="margin:0;font-size:1rem;">${p.title}</h3>
+            <span style="color:#34d399;font-size:0.8rem;">📍 ${distKm} km away</span>
+          </div>
+        </div>
+        <div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:16px;margin-bottom:14px;">
+          <div style="text-align:center;padding:20px 0;">
+            <i class="fas fa-spinner fa-spin" style="color:#38bdf8;font-size:1.5rem;"></i>
+            <p style="color:#64748b;margin-top:8px;font-size:0.85rem;">Fetching summary…</p>
+          </div>
+        </div>`);
+
+      // Fetch Wikipedia REST summary (same as chatbot uses)
+      let summaryHtml = '';
+      let thumbnailHtml = '';
+      try {
+          const wikiApiUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(p.title.replace(/ /g,'_'))}`;
+          const res  = await fetch(wikiApiUrl, { headers: { 'User-Agent': 'TripWise/1.0' } });
+          const data = await res.json();
+
+          if (data.extract && data.extract.length > 40) {
+              // Show 3 sentences max (same as chatbot)
+              const sentences = data.extract.split('. ').slice(0, 3).join('. ') + '.';
+              summaryHtml = `<p style="color:#cbd5e1;font-size:0.9rem;line-height:1.6;margin:0;">${sentences}</p>`;
+          } else {
+              summaryHtml = `<p style="color:#64748b;font-size:0.9rem;">No summary available for this place.</p>`;
+          }
+
+          if (data.thumbnail?.source) {
+              thumbnailHtml = `<img src="${data.thumbnail.source}"
+                                   alt="${p.title}"
+                                   style="width:100%;max-height:160px;object-fit:cover;border-radius:10px;margin-bottom:12px;">`;
+          }
+      } catch (err) {
+          summaryHtml = `<p style="color:#64748b;font-size:0.9rem;">Could not fetch details right now.</p>`;
+      }
+
+      // Render the detail view
+      App.Util.showModal(`
+        <button onclick="App.Nearby._renderList()"
+                style="background:none;border:none;color:#38bdf8;cursor:pointer;font-size:0.9rem;
+                       margin-bottom:12px;padding:0;display:flex;align-items:center;gap:6px;">
+          <i class="fas fa-arrow-left"></i> Back to list
+        </button>
+
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+          <div style="width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,0.3);
+                      display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <i class="fas ${icon}" style="color:${color};font-size:1.1rem;"></i>
+          </div>
+          <div>
+            <h3 style="margin:0;font-size:1.05rem;line-height:1.3;">${p.title}</h3>
+            <span style="color:#34d399;font-size:0.8rem;">📍 ${distKm} km away</span>
+          </div>
+        </div>
+
+        ${thumbnailHtml}
+
+        <div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:14px;margin-bottom:14px;
+                    border-left:3px solid ${color};">
+          ${summaryHtml}
+          <p style="color:#475569;font-size:0.75rem;margin:10px 0 0;border-top:1px solid rgba(255,255,255,0.06);padding-top:8px;">
+            <i class="fas fa-globe" style="color:#64748b;"></i> Source: Wikipedia
+          </p>
+        </div>
+
+        <a href="${mapsUrl}" target="_blank" rel="noopener"
+           style="display:flex;align-items:center;justify-content:center;gap:8px;
+                  background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.3);
+                  border-radius:10px;padding:12px;text-decoration:none;color:#38bdf8;
+                  font-weight:600;font-size:0.9rem;margin-bottom:14px;transition:background 0.2s;"
+           onmouseover="this.style.background='rgba(56,189,248,0.25)'"
+           onmouseout="this.style.background='rgba(56,189,248,0.15)'">
+          <i class="fas fa-map-marker-alt"></i> Open in Google Maps
+        </a>
+
+        <div class="modal-buttons">
+          <button onclick="App.Budget.closeBudgetTracker()" class="btn-close">Close</button>
+        </div>`);
+    },
+
+    // Stubs — kept for backward compat
+    getOverpassQuery: function() { return ''; },
+    formatPlace:      function() { return ''; },
+
+
   },
 
   Tips: {
@@ -1375,6 +1533,17 @@ Total Estimated Budget: ₹${estimatedBudget}
       return String(text).replace(/[&<>"']/g, function (m) {
         return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m];
       });
+    },
+    // Haversine distance in km (rounded to 1 decimal)
+    calcDist: function(lat1, lon1, lat2, lon2) {
+        if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2)
+                + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180)
+                * Math.sin(dLon/2) * Math.sin(dLon/2);
+        return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFixed(1);
     },
     showModal: function (htmlContent) {
       if (App.Elements.budgetTrackerModal && App.Elements.budgetTrackerModalContent) {

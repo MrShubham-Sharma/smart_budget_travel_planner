@@ -65,6 +65,12 @@ def init_db():
     if 'is_admin' not in cols:
         cur.execute("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0")
 
+    # Migration: add stay_type to trips table if it doesn't exist yet
+    cur.execute("PRAGMA table_info(trips)")
+    trip_cols = [r[1] for r in cur.fetchall()]
+    if 'stay_type' not in trip_cols:
+        cur.execute("ALTER TABLE trips ADD COLUMN stay_type TEXT DEFAULT 'budget_hotel'")
+
     conn.commit()
     conn.close()
 
@@ -120,15 +126,15 @@ def get_user_by_email(email):
 # 2. TRIP FUNCTIONS
 # ------------------
 
-def add_trip(user_id, trip_name, destination, start_date=None, end_date=None, budget=None, latitude=None, longitude=None):
+def add_trip(user_id, trip_name, destination, start_date=None, end_date=None, budget=None, latitude=None, longitude=None, stay_type=None):
     """Insert a trip for a user. Returns True on success."""
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     try:
         cur.execute('''
-            INSERT INTO trips (user_id, trip_name, destination, start_date, end_date, budget, latitude, longitude)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (user_id, trip_name, destination, start_date, end_date, budget, latitude, longitude))
+            INSERT INTO trips (user_id, trip_name, destination, start_date, end_date, budget, latitude, longitude, stay_type)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (user_id, trip_name, destination, start_date, end_date, budget, latitude, longitude, stay_type or 'budget_hotel'))
         conn.commit()
         return True
     except Exception as e:
@@ -157,7 +163,7 @@ def get_trip(trip_id):
     return trip
 
 # NEW: Required by app.py to handle trip updates
-def update_trip(trip_id, trip_name, destination, start_date, end_date, budget, latitude, longitude):
+def update_trip(trip_id, trip_name, destination, start_date, end_date, budget, latitude, longitude, stay_type=None):
     """Dynamically updates fields for a given trip.
        Only updates fields that are not None."""
        
@@ -189,6 +195,9 @@ def update_trip(trip_id, trip_name, destination, start_date, end_date, budget, l
     if longitude is not None:
         fields_to_update.append("longitude = ?")
         params.append(longitude)
+    if stay_type is not None:
+        fields_to_update.append("stay_type = ?")
+        params.append(stay_type)
 
     if not fields_to_update:
         return True # Nothing to update

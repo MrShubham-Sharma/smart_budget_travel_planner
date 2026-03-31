@@ -1596,3 +1596,9 @@ button:hover {
     transform: scale(1.05);
     width: auto; /* override global button width: 100% */
 }
+
+/* Skeleton loader pulse animation */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.4; }
+}

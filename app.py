@@ -180,11 +180,12 @@ def add_trip_api():
             user_id=session["user_id"],
             trip_name=trip_name,
             destination=destination,
-            start_date=data.get("start_date"), # Can be None
-            end_date=data.get("end_date"),     # Can be None
+            start_date=data.get("start_date"),
+            end_date=data.get("end_date"),
             budget=budget,
             latitude=latitude,
-            longitude=longitude
+            longitude=longitude,
+            stay_type=data.get("stay_type", "budget_hotel")
         )
         if success:
             return jsonify({"status": "success", "message": "Trip added successfully!"})
@@ -267,7 +268,8 @@ def update_trip_api():
             end_date=data.get("end_date"),
             budget=None if data.get("budget") in (None, "") else float(data.get("budget")),
             latitude=None if data.get("latitude") in (None, "") else float(data.get("latitude")),
-            longitude=None if data.get("longitude") in (None, "") else float(data.get("longitude"))
+            longitude=None if data.get("longitude") in (None, "") else float(data.get("longitude")),
+            stay_type=data.get("stay_type")
         )
         return jsonify({"status": "success" if success else "error", "message": "Updated" if success else "Update failed"})
     except ValueError:
@@ -459,6 +461,566 @@ def chat_api():
 
     reply = _process_chatbot(message)
     return jsonify({"reply": reply})
+
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DESTINATION-WISE STAY DATASET
+# Covers 60+ Indian travel destinations with:
+#   - Available stay types (matches Plan Trip form options)
+#   - Local price ranges
+#   - Best areas / neighborhoods
+#   - Specific tips
+# ─────────────────────────────────────────────────────────────────────────────
+STAY_DATASET = {
+    # ── Beaches & Coastal ──────────────────────────────────────────────────
+    "goa": {
+        "types": ["hostel", "budget_hotel", "guesthouse", "homestay", "resort", "5star_hotel"],
+        "popular": "resort, beach hostel",
+        "areas": "Calangute, Baga (party), Palolem (peaceful), Anjuna (backpacker)",
+        "prices": {
+            "hostel": "₹400–900/night",
+            "budget_hotel": "₹800–2,000/night",
+            "guesthouse": "₹1,000–2,500/night",
+            "homestay": "₹1,500–3,000/night",
+            "resort": "₹4,000–20,000/night",
+            "5star_hotel": "₹10,000–40,000/night",
+        },
+        "tip": "🏖️ Book resorts 1 month ahead (Oct–Feb peak). Hostels in Anjuna are cheapest.",
+    },
+    "pondicherry": {
+        "types": ["guesthouse", "homestay", "budget_hotel", "resort", "3star_hotel"],
+        "popular": "French Quarter heritage guesthouse",
+        "areas": "French Quarter (charming), Promenade Beach (scenic)",
+        "prices": {"guesthouse": "₹1,000–3,000/night", "resort": "₹4,000–12,000/night"},
+        "tip": "🇫🇷 French Quarter guesthouses are iconic — book early for Auroville visits.",
+    },
+    "varkala": {
+        "types": ["hostel", "guesthouse", "resort", "homestay"],
+        "popular": "cliff-top guesthouse",
+        "areas": "North Cliff (budget), South Cliff (upscale)",
+        "prices": {"hostel": "₹350–700/night", "guesthouse": "₹700–2,500/night"},
+        "tip": "🌊 Cliff-top guesthouses have the best sea views but book ahead in Dec–Jan.",
+    },
+    "kovalam": {
+        "types": ["resort", "budget_hotel", "guesthouse", "3star_hotel"],
+        "popular": "beach resort",
+        "areas": "Lighthouse Beach, Hawah Beach, Samudra Beach",
+        "prices": {"budget_hotel": "₹800–2,000/night", "resort": "₹3,500–15,000/night"},
+        "tip": "🏝️ Stay near Lighthouse Beach for best access to restaurants and surf.",
+    },
+    "andaman": {
+        "types": ["resort", "guesthouse", "budget_hotel", "camping", "homestay"],
+        "popular": "beach resort, eco-resort",
+        "areas": "Port Blair (base), Havelock (beach), Neil Island (quiet)",
+        "prices": {"guesthouse": "₹1,000–2,500/night", "resort": "₹4,000–18,000/night"},
+        "tip": "🌴 Havelock resorts sell out fast — book at least 4 weeks in advance.",
+    },
+
+    # ── Hill Stations / Mountains ──────────────────────────────────────────
+    "manali": {
+        "types": ["camping", "hostel", "guesthouse", "budget_hotel", "resort", "homestay"],
+        "popular": "camping, guesthouse",
+        "areas": "Old Manali (backpacker), Mall Road (central), Vashisht (peaceful)",
+        "prices": {
+            "hostel": "₹400–900/night",
+            "camping": "₹600–2,500/night",
+            "guesthouse": "₹700–2,000/night",
+            "resort": "₹3,000–12,000/night",
+        },
+        "tip": "❄️ Old Manali has cheap dorms. Book any stay before Sep–Oct snowfall.",
+    },
+    "shimla": {
+        "types": ["budget_hotel", "guesthouse", "3star_hotel", "homestay", "resort"],
+        "popular": "colonial heritage hotel",
+        "areas": "Mall Road (central), Jakhu (temple), Kufri (scenic)",
+        "prices": {"guesthouse": "₹800–2,000/night", "3star_hotel": "₹2,000–5,000/night"},
+        "tip": "🏔️ Heritage hotels on Mall Road are pricey but iconic. Book Mar–Jun early.",
+    },
+    "darjeeling": {
+        "types": ["guesthouse", "homestay", "budget_hotel", "resort", "camping"],
+        "popular": "tea estate bungalow, guesthouse",
+        "areas": "Chowrasta Mall (central), Batasia Loop (scenic)",
+        "prices": {"guesthouse": "₹700–1,800/night", "resort": "₹3,000–10,000/night"},
+        "tip": "🍵 Tea estate stays are unique — Glenburn, Happy Valley estates available.",
+    },
+    "ooty": {
+        "types": ["resort", "guesthouse", "budget_hotel", "homestay", "camping"],
+        "popular": "colonial resort, plantation stay",
+        "areas": "Ooty Lake (central), Dodabetta (highest point), Kotagiri (quieter)",
+        "prices": {"budget_hotel": "₹700–1,800/night", "resort": "₹3,000–12,000/night"},
+        "tip": "🌿 Fernhills Royal Palace hotel for heritage stay. Apr–Jun very crowded.",
+    },
+    "munnar": {
+        "types": ["resort", "homestay", "guesthouse", "camping", "3star_hotel"],
+        "popular": "tea estate resort, plantation homestay",
+        "areas": "Munnar Town (budget), Devikulam (scenic), Vagamon (quiet)",
+        "prices": {"homestay": "₹1,200–3,000/night", "resort": "₹3,500–15,000/night"},
+        "tip": "☁️ Plantation homestays offer tea-making experiences. Sep–Mar best season.",
+    },
+    "coorg": {
+        "types": ["homestay", "resort", "guesthouse", "camping"],
+        "popular": "coffee plantation homestay",
+        "areas": "Madikeri (town), Virajpet, Abbey Falls area",
+        "prices": {"homestay": "₹1,500–4,000/night", "resort": "₹4,000–18,000/night"},
+        "tip": "☕ Coffee plantation homestays are Coorg's signature experience.",
+    },
+    "kodaikanal": {
+        "types": ["guesthouse", "resort", "budget_hotel", "homestay", "camping"],
+        "popular": "lake-view resort",
+        "areas": "Kodai Lake (central), Bryant Park, Coaker's Walk",
+        "prices": {"guesthouse": "₹700–2,000/night", "resort": "₹2,500–10,000/night"},
+        "tip": "🌲 Lake-view rooms are most popular — book for April (summer rush).",
+    },
+    "mussoorie": {
+        "types": ["budget_hotel", "guesthouse", "resort", "homestay", "3star_hotel"],
+        "popular": "hotel near Mall Road",
+        "areas": "Mall Road (central), Landour (quiet), Happy Valley",
+        "prices": {"budget_hotel": "₹800–2,500/night", "resort": "₹3,000–10,000/night"},
+        "tip": "⛰️ Landour is quieter and cheaper than Mall Road. Avoid May–Jun crowds.",
+    },
+    "ladakh": {
+        "types": ["camping", "guesthouse", "homestay", "budget_hotel", "resort"],
+        "popular": "camping, village homestay",
+        "areas": "Leh (base), Nubra Valley (desert camp), Pangong (lakeside camp)",
+        "prices": {
+            "camping": "₹800–3,500/night",
+            "guesthouse": "₹700–2,000/night",
+            "homestay": "₹600–1,500/night",
+        },
+        "tip": "🏔️ Pangong lake camps are iconic but remote — book packages. Jun–Sep only.",
+    },
+    "spiti": {
+        "types": ["camping", "homestay", "guesthouse"],
+        "popular": "village homestay",
+        "areas": "Kaza (base), Key Monastery, Chandratal Lake",
+        "prices": {"camping": "₹500–1,500/night", "homestay": "₹400–1,000/night"},
+        "tip": "🗻 Spiti homestays are very affordable — local families host travelers (<₹1,000).",
+    },
+    "rishikesh": {
+        "types": ["camping", "hostel", "ashram", "guesthouse", "resort"],
+        "popular": "yoga ashram, riverside camp",
+        "areas": "Lakshman Jhula (backpacker), Tapovan (yoga), Ram Jhula",
+        "prices": {
+            "hostel": "₹300–700/night",
+            "camping": "₹700–2,500/night",
+            "guesthouse": "₹600–2,000/night",
+        },
+        "tip": "🕉️ Ashram stays (Parmarth, Sivananda) start at ₹200/night with yogic meals.",
+    },
+    "haridwar": {
+        "types": ["ashram", "guesthouse", "budget_hotel", "dharamshala", "3star_hotel"],
+        "popular": "dharamshala, guesthouse near Ganga",
+        "areas": "Har Ki Pauri (central), Upper Road (quieter)",
+        "prices": {"guesthouse": "₹400–1,500/night", "budget_hotel": "₹600–2,000/night"},
+        "tip": "🙏 ISKCON and Saptrishi Ashram offer free/very cheap stays for pilgrims.",
+    },
+    "nainital": {
+        "types": ["guesthouse", "resort", "budget_hotel", "homestay", "3star_hotel"],
+        "popular": "lake-view hotel",
+        "areas": "Mall Road (central), Ayarpatta (quieter), Bhimtal (less crowded)",
+        "prices": {"guesthouse": "₹700–2,000/night", "3star_hotel": "₹2,000–6,000/night"},
+        "tip": "🏞️ Lake-view rooms at Nainital are premium — check for shoulder season deals.",
+    },
+    "mcleod ganj": {
+        "types": ["hostel", "guesthouse", "budget_hotel", "homestay"],
+        "popular": "Tibetan guesthouse",
+        "areas": "McLeod Ganj (central), Bhagsu (peaceful), Dharamkot (trekkers)",
+        "prices": {"hostel": "₹250–600/night", "guesthouse": "₹500–1,500/night"},
+        "tip": "🏔️ Dharamkot has cheap stays close to trekking trails. Very backpacker friendly.",
+    },
+
+    # ── Rajasthan Heritage ──────────────────────────────────────────────────
+    "jaipur": {
+        "types": ["heritage_hotel", "guesthouse", "budget_hotel", "5star_hotel", "homestay"],
+        "popular": "heritage haveli, boutique hotel",
+        "areas": "Walled City (heritage), C-Scheme (modern), Amer Road (scenic)",
+        "prices": {
+            "budget_hotel": "₹700–2,000/night",
+            "guesthouse": "₹1,000–3,000/night",
+            "5star_hotel": "₹8,000–35,000/night",
+        },
+        "tip": "🏰 Haveli stays in the Pink City are iconic. Nahargarh, Bissau Palace area best.",
+    },
+    "jodhpur": {
+        "types": ["heritage_hotel", "guesthouse", "budget_hotel", "3star_hotel"],
+        "popular": "heritage haveli near Mehrangarh",
+        "areas": "Old City (blue houses, backpacker), Ratanada (quieter)",
+        "prices": {"guesthouse": "₹700–2,500/night", "heritage_hotel": "₹2,000–10,000/night"},
+        "tip": "💙 Blue City rooftop guesthouses have breathtaking Mehrangarh Fort views.",
+    },
+    "jaisalmer": {
+        "types": ["desert_camp", "guesthouse", "heritage_hotel", "budget_hotel"],
+        "popular": "desert camp, sandstone haveli",
+        "areas": "Inside Fort (heritage), Gadisar Lake, Sam Sand Dunes (camps)",
+        "prices": {
+            "guesthouse": "₹600–2,000/night",
+            "desert_camp": "₹2,000–8,000/night (with dinner, camel ride)",
+        },
+        "tip": "🐪 Sam Dunes overnight camp with camel safari is must-do. Book Oct–Feb.",
+    },
+    "udaipur": {
+        "types": ["heritage_hotel", "guesthouse", "budget_hotel", "resort", "5star_hotel"],
+        "popular": "lake-view heritage hotel",
+        "areas": "Lake Pichola (romantic), Hanuman Ghat (budget), Fateh Sagar (quiet)",
+        "prices": {
+            "guesthouse": "₹800–2,500/night",
+            "heritage_hotel": "₹3,000–15,000/night",
+            "5star_hotel": "₹12,000–60,000/night",
+        },
+        "tip": "🛶 Lake Palace hotel is world-famous but ₹50K+/night. Budget: stay at Lake Pichola ghats.",
+    },
+    "pushkar": {
+        "types": ["guesthouse", "budget_hotel", "ashram", "camping"],
+        "popular": "lakeside guesthouse",
+        "areas": "Pushkar Lake (center), Sadar Bazaar",
+        "prices": {"guesthouse": "₹400–1,500/night", "budget_hotel": "₹600–2,000/night"},
+        "tip": "🐘 Pushkar Camel Fair (Nov) — book months ahead as all stays fill completely.",
+    },
+    "bikaner": {
+        "types": ["heritage_hotel", "guesthouse", "budget_hotel"],
+        "popular": "heritage haveli",
+        "areas": "Old City (heritage), Lalgarh Palace area",
+        "prices": {"guesthouse": "₹500–1,500/night", "heritage_hotel": "₹1,500–6,000/night"},
+        "tip": "🏰 Gajner Palace hotel is spectacular. Visit during cooler months (Oct–Mar).",
+    },
+
+    # ── Cultural / Spiritual ────────────────────────────────────────────────
+    "varanasi": {
+        "types": ["guesthouse", "budget_hotel", "ashram", "dharamshala", "3star_hotel", "boutique"],
+        "popular": "Ganga-view guesthouse, dharamshala",
+        "areas": "Assi Ghat (backpacker), Dashashwamedh Ghat (central), Godaulia",
+        "prices": {
+            "hostel": "₹300–700/night",
+            "guesthouse": "₹500–2,000/night",
+            "3star_hotel": "₹2,000–5,000/night",
+        },
+        "tip": "🕯️ Ghat-view guesthouses at Assi are budget-friendly. Book early for Diwali.",
+    },
+    "agra": {
+        "types": ["budget_hotel", "guesthouse", "3star_hotel", "5star_hotel", "resort"],
+        "popular": "Taj-view hotel",
+        "areas": "Taj Ganj (budget, walking distance to Taj), Sadar Bazaar, MG Road",
+        "prices": {
+            "guesthouse": "₹600–2,000/night",
+            "3star_hotel": "₹2,500–7,000/night",
+            "5star_hotel": "₹12,000–50,000/night (Taj view rooms)",
+        },
+        "tip": "🕌 Oberoi Amarvilas has most iconic Taj view but is ₹35K+. Taj Ganj has cheap dorms.",
+    },
+    "amritsar": {
+        "types": ["guesthouse", "budget_hotel", "dharamshala", "3star_hotel"],
+        "popular": "dharamshala near Golden Temple",
+        "areas": "Golden Temple area (free SGPC accommodation), Hall Bazaar",
+        "prices": {"guesthouse": "₹500–1,500/night", "budget_hotel": "₹700–2,000/night"},
+        "tip": "🙏 SGPC offers FREE accommodation in the Golden Temple complex for pilgrims!",
+    },
+    "hampi": {
+        "types": ["guesthouse", "camping", "hostel", "budget_hotel"],
+        "popular": "Boulder guesthouse, riverside camp",
+        "areas": "Hampi Bazaar (main), Virupapur Gadde (hippie island, riverside)",
+        "prices": {"hostel": "₹300–600/night", "guesthouse": "₹500–1,500/night"},
+        "tip": "🗿 Cross the river to Virupapur Gadde for the cheapest stays and peaceful vibe.",
+    },
+    "khajuraho": {
+        "types": ["budget_hotel", "guesthouse", "3star_hotel", "resort"],
+        "popular": "hotel near western temple complex",
+        "areas": "Western Temple area (most convenient), Jhansi Road",
+        "prices": {"guesthouse": "₹600–1,500/night", "3star_hotel": "₹2,000–5,000/night"},
+        "tip": "💫 Small, quiet destination — most mid-range hotels are fine. Visit Nov–Mar.",
+    },
+    "mysore": {
+        "types": ["heritage_hotel", "guesthouse", "budget_hotel", "3star_hotel", "resort"],
+        "popular": "heritage hotel, guesthouse",
+        "areas": "Palace area (central), Chamundi Hills (scenic), Brindavan Gardens",
+        "prices": {"guesthouse": "₹600–1,800/night", "3star_hotel": "₹2,000–5,000/night"},
+        "tip": "👑 Stay near the Palace for Dasara festival. Book 3–4 months ahead for Oct.",
+    },
+
+    # ── Metro Cities ────────────────────────────────────────────────────────
+    "mumbai": {
+        "types": ["hostel", "budget_hotel", "guesthouse", "3star_hotel", "5star_hotel"],
+        "popular": "beach hotel (Juhu), budget hotel (Colaba)",
+        "areas": "Colaba (tourist), Bandra (trendy), Juhu (beach), Andheri (airport)",
+        "prices": {
+            "hostel": "₹400–900/night",
+            "budget_hotel": "₹1,200–3,000/night",
+            "3star_hotel": "₹3,500–8,000/night",
+            "5star_hotel": "₹10,000–50,000/night",
+        },
+        "tip": "🌆 Colaba area hostels (near Gateway of India) are cheapest for backpackers.",
+    },
+    "delhi": {
+        "types": ["hostel", "budget_hotel", "guesthouse", "3star_hotel", "5star_hotel"],
+        "popular": "hotel in Connaught Place, boutique in Hauz Khas",
+        "areas": "Paharganj (budget), Connaught Place (central), Hauz Khas (trendy)",
+        "prices": {
+            "hostel": "₹350–800/night",
+            "budget_hotel": "₹900–2,500/night",
+            "5star_hotel": "₹8,000–40,000/night",
+        },
+        "tip": "🏙️ Paharganj near New Delhi station is classic backpacker hub. Safe and cheap.",
+    },
+    "bangalore": {
+        "types": ["hostel", "budget_hotel", "guesthouse", "3star_hotel", "5star_hotel"],
+        "popular": "hotel near MG Road, hostel in Indiranagar",
+        "areas": "MG Road (central), Koramangala (hip), Indiranagar (restaurants)",
+        "prices": {"hostel": "₹400–900/night", "budget_hotel": "₹1,000–2,500/night"},
+        "tip": "🌃 Koramangala & Indiranagar have best nightlife. Book on business-trip dates carefully.",
+    },
+    "hyderabad": {
+        "types": ["budget_hotel", "guesthouse", "3star_hotel", "5star_hotel"],
+        "popular": "hotel near Charminar, luxury near HITEC City",
+        "areas": "Charminar (Old City, heritage), Banjara Hills (upscale), HITEC City (IT hub)",
+        "prices": {"budget_hotel": "₹800–2,000/night", "5star_hotel": "₹7,000–30,000/night"},
+        "tip": "🕌 Stay in Charminar area for biryani and bazaars. HITEC City for business stays.",
+    },
+    "chennai": {
+        "types": ["hostel", "budget_hotel", "guesthouse", "3star_hotel", "resort"],
+        "popular": "hotel near Marina Beach, business hotel",
+        "areas": "Marina Beach (scenic), T. Nagar (shopping), OMR (IT corridor)",
+        "prices": {"budget_hotel": "₹800–2,000/night", "3star_hotel": "₹2,500–6,000/night"},
+        "tip": "🌊 Marina Beach area hotels have sea views. OMR is best for business travelers.",
+    },
+    "kolkata": {
+        "types": ["hostel", "guesthouse", "budget_hotel", "3star_hotel", "5star_hotel"],
+        "popular": "heritage hotel, backpacker hostel",
+        "areas": "Park Street (central), Sudder Street (backpacker), Salt Lake (modern)",
+        "prices": {"hostel": "₹350–700/night", "budget_hotel": "₹700–2,000/night"},
+        "tip": "🎨 Sudder Street has the most hostels and budget hotels for solo travelers.",
+    },
+    "pune": {
+        "types": ["hostel", "budget_hotel", "guesthouse", "3star_hotel", "resort"],
+        "popular": "hotel near Shivajinagar, hostel in Koregaon Park",
+        "areas": "Koregaon Park (Osho, trendy), Shivajinagar (central), Hinjewadi (IT)",
+        "prices": {"hostel": "₹400–900/night", "budget_hotel": "₹900–2,500/night"},
+        "tip": "🌆 Koregaon Park is the most happening area — best cafes and co-working spaces.",
+    },
+
+    # ── Northeast India ─────────────────────────────────────────────────────
+    "shillong": {
+        "types": ["guesthouse", "budget_hotel", "homestay", "resort", "camping"],
+        "popular": "homestay, guesthouse",
+        "areas": "Police Bazaar (central), Laitumkhrah (local), Umiam Lake (scenic)",
+        "prices": {"guesthouse": "₹600–1,800/night", "homestay": "₹500–1,500/night"},
+        "tip": "🌧️ Scotland of the East — homestays in villages near Cherrapunji are amazing.",
+    },
+    "kaziranga": {
+        "types": ["resort", "guesthouse", "camping", "budget_hotel"],
+        "popular": "wildlife resort, jungle lodge",
+        "areas": "Kohora (central), Bagori, Agoratoli (near park gates)",
+        "prices": {"guesthouse": "₹800–2,000/night", "resort": "₹3,000–12,000/night"},
+        "tip": "🦏 Wildlife resorts with elephant safaris included are the best value option.",
+    },
+    "gangtok": {
+        "types": ["guesthouse", "budget_hotel", "homestay", "resort", "3star_hotel"],
+        "popular": "MG Marg hotel, mountain-view resort",
+        "areas": "MG Marg (central), Tadong (local), Ranipool (quieter)",
+        "prices": {"guesthouse": "₹700–2,000/night", "resort": "₹3,000–10,000/night"},
+        "tip": "🏔️ Mountain-facing rooms give Kanchenjunga views. Book Oct–Nov for clear skies.",
+    },
+    "tawang": {
+        "types": ["guesthouse", "budget_hotel", "camping", "homestay"],
+        "popular": "guesthouse near monastery",
+        "areas": "Tawang Town, Jung Village (serene)",
+        "prices": {"guesthouse": "₹500–1,500/night", "budget_hotel": "₹700–2,000/night"},
+        "tip": "🛕 Very remote — carry cash, limited ATMs. Book ahead for Oct–Apr peak season.",
+    },
+
+    # ── Kerala's Backwaters ─────────────────────────────────────────────────
+    "alleppey": {
+        "types": ["houseboat", "resort", "guesthouse", "homestay", "budget_hotel"],
+        "popular": "houseboat, backwater resort",
+        "areas": "Backwaters, Alleppey Beach, Kumarakom (nearby)",
+        "prices": {
+            "houseboat": "₹5,000–20,000/night (ac, meals included)",
+            "guesthouse": "₹700–2,000/night",
+            "resort": "₹4,000–15,000/night",
+        },
+        "tip": "🚢 Overnight houseboat is THE Alleppey experience. Book standard AC boat (₹6K) for value.",
+    },
+    "wayanad": {
+        "types": ["resort", "homestay", "treehouse", "camping", "guesthouse"],
+        "popular": "treehouse, plantation resort",
+        "areas": "Kalpetta (town), Vythiri (resorts), Meppadi (plantation)",
+        "prices": {"homestay": "₹1,200–3,500/night", "resort": "₹3,000–15,000/night"},
+        "tip": "🌿 Treehouse stays are unique to Wayanad — book Vythiri Resort for premium version.",
+    },
+
+    # ── Madhya Pradesh / Central ─────────────────────────────────────────────
+    "bhopal": {
+        "types": ["budget_hotel", "guesthouse", "3star_hotel", "resort"],
+        "popular": "hotel near lakes",
+        "areas": "New Bhopal (modern), Old Bhopal (heritage), VIP Road (upscale)",
+        "prices": {"budget_hotel": "₹700–1,800/night", "3star_hotel": "₹2,000–5,000/night"},
+        "tip": "🏛️ Upper Lake area hotels offer great views. Visit Sanchi Stupa (45min away).",
+    },
+    "pachmarhi": {
+        "types": ["resort", "guesthouse", "camping", "mp_tourism"],
+        "popular": "MP Tourism resort",
+        "areas": "Pachmarhi Town, Bee Falls area",
+        "prices": {"guesthouse": "₹700–2,000/night", "resort": "₹2,500–10,000/night"},
+        "tip": "🌲 MP State Tourism offers affordable resorts (₹2–3K) with forest views.",
+    },
+    "orchha": {
+        "types": ["heritage_hotel", "guesthouse", "budget_hotel", "camping"],
+        "popular": "heritage hotel near fort/palace",
+        "areas": "Orchha Fort complex, Betwa River area",
+        "prices": {"guesthouse": "₹500–1,500/night", "heritage_hotel": "₹2,000–8,000/night"},
+        "tip": "🏯 Sheesh Mahal (inside Orchha Fort) is an MP Tourism heritage hotel — unique stay.",
+    },
+
+    # ── Tamil Nadu / South ───────────────────────────────────────────────────
+    "madurai": {
+        "types": ["guesthouse", "budget_hotel", "3star_hotel", "heritage_hotel"],
+        "popular": "hotel near Meenakshi Temple",
+        "areas": "Temple area (budget), Town Hall Road (central)",
+        "prices": {"guesthouse": "₹500–1,500/night", "3star_hotel": "₹2,000–5,000/night"},
+        "tip": "🛕 Temple Town guesthouses are cheapest. Avoid huge groups in festival months.",
+    },
+    "kodaikanal": {
+        "types": ["guesthouse", "resort", "homestay", "budget_hotel"],
+        "popular": "lake-view stay",
+        "areas": "Kodai Lake (center), Coaker Walk, Bear Shola Falls area",
+        "prices": {"guesthouse": "₹700–2,000/night", "resort": "₹2,500–10,000/night"},
+        "tip": "🌲 Kodai's colonial bungalows (YWCA, Carlton) offer unique stays.",
+    },
+    "rameshwaram": {
+        "types": ["dharamshala", "guesthouse", "budget_hotel"],
+        "popular": "dharamshala near temple",
+        "areas": "Temple area, Agni Teertham Beach",
+        "prices": {"guesthouse": "₹400–1,000/night", "budget_hole": "₹600–1,800/night"},
+        "tip": "🙏 HRCE-run dharamshalas offer very affordable rooms near the temple.",
+    },
+
+    # ── Gujarat ──────────────────────────────────────────────────────────────
+    "rann of kutch": {
+        "types": ["tent_resort", "guesthouse", "budget_hotel"],
+        "popular": "Rann Utsav tent city",
+        "areas": "Dhordo Village (Rann Utsav), Bhuj (base city)",
+        "prices": {"guesthouse": "₹800–2,000/night", "tent_resort": "₹3,000–15,000/night"},
+        "tip": "🌕 Rann Utsav tent city (Nov–Feb) is government-run and fully booked fast!",
+    },
+    "ahmedabad": {
+        "types": ["heritage_hotel", "budget_hotel", "guesthouse", "3star_hotel"],
+        "popular": "Heritage Walk area guesthouse, Pol houses",
+        "areas": "Old City/Pol (heritage), CG Road (upscale), Navrangpura",
+        "prices": {"budget_hotel": "₹700–2,000/night", "heritage_hotel": "₹2,000–8,000/night"},
+        "tip": "🏛️ Staying in a restored Pol-house is the most authentic Ahmedabad experience.",
+    },
+    "dwarka": {
+        "types": ["dharamshala", "guesthouse", "budget_hotel"],
+        "popular": "dharamshala, guesthouse near temple",
+        "areas": "Temple area, Dwarkadhish, Beyt Dwarka",
+        "prices": {"guesthouse": "₹400–1,200/night", "budget_hotel": "₹600–1,800/night"},
+        "tip": "🙏 Dwarka Dheesh Temple trust dharamshalas are free / very cheap for pilgrims.",
+    },
+
+    # ── Uttarakhand / Himalayas ───────────────────────────────────────────────
+    "auli": {
+        "types": ["resort", "guesthouse", "camping", "budget_hotel"],
+        "popular": "ski resort",
+        "areas": "Auli Ski Area, Gorson Bugyal Meadow",
+        "prices": {"resort": "₹3,000–12,000/night", "guesthouse": "₹700–2,500/night"},
+        "tip": "⛷️ GMVN resort is government-run, affordable. Best Jan–Mar for snow skiing.",
+    },
+    "chopta": {
+        "types": ["camping", "guesthouse", "budget_hotel"],
+        "popular": "camping, forest resthouse",
+        "areas": "Chopta Meadow (trek base), Tungnath route",
+        "prices": {"camping": "₹400–1,200/night", "guesthouse": "₹500–1,500/night"},
+        "tip": "🌸 Mini Switzerland of India — bugyal meadow camping is breathtaking in May.",
+    },
+    "kedarnath": {
+        "types": ["dharamshala", "tent", "guesthouse"],
+        "popular": "dharamshala, GMVN tent",
+        "areas": "Kedarnath Town (shrine), Gaurikund (base), Sonprayag",
+        "prices": {"dharamshala": "₹150–500/night", "tent": "₹300–800/night"},
+        "tip": "⛰️ GMVN camps near temple are best option. Book months ahead for Jul–Oct season.",
+    },
+    "char dham": {
+        "types": ["dharamshala", "guesthouse", "budget_hotel", "camping"],
+        "popular": "dharamshala at each dham",
+        "areas": "Yamunotri · Gangotri · Kedarnath · Badrinath",
+        "prices": {"dharamshala": "₹100–400/night", "guesthouse": "₹400–1,200/night"},
+        "tip": "🙏 Register on IRCTC for Char Dham Yatra packages that include stay + transport.",
+    },
+
+    # ── Popular Weekend Getaways ──────────────────────────────────────────────
+    "lonavala": {
+        "types": ["resort", "budget_hotel", "guesthouse", "camping", "homestay"],
+        "popular": "monsoon resort",
+        "areas": "Lonavala Lake, Bhushi Dam, Khandala (twin hill station)",
+        "prices": {"budget_hotel": "₹1,000–2,500/night", "resort": "₹3,000–12,000/night"},
+        "tip": "🌧️ Monsoon is best season! Book resorts with valley-view. Very busy on weekends.",
+    },
+    "mahabaleshwar": {
+        "types": ["resort", "guesthouse", "budget_hotel", "homestay"],
+        "popular": "strawberry valley resort",
+        "areas": "Mahabaleshwar Town, Panchgani (nearby), Venna Lake",
+        "prices": {"guesthouse": "₹800–2,000/night", "resort": "₹3,000–15,000/night"},
+        "tip": "🍓 Strawberry season (Feb–May) is peak — book 3 weeks ahead for weekends.",
+    },
+    "nashik": {
+        "types": ["budget_hotel", "guesthouse", "homestay", "resort", "3star_hotel"],
+        "popular": "wine resort, Kumbh Mela dharamshala",
+        "areas": "Gangapur Road (wineries), Trimbak Road (temple), Devlali (peaceful)",
+        "prices": {"budget_hotel": "₹700–1,800/night", "resort": "₹2,500–8,000/night"},
+        "tip": "🍷 Sula Vineyards offers resort stay with wine tours — very unique experience!",
+    },
+    "aurangabad": {
+        "types": ["budget_hotel", "guesthouse", "3star_hotel", "resort"],
+        "popular": "hotel near Ajanta/Ellora caves",
+        "areas": "CIDCO (new), City center, Near MIDC",
+        "prices": {"guesthouse": "₹600–1,500/night", "3star_hotel": "₹2,000–5,500/night"},
+        "tip": "🏺 Stay in Aurangabad as base for Ajanta (2hr) and Ellora (30min). Book Mar ahead.",
+    },
+}
+
+def _get_stay_info(place_key):
+    """Return formatted stay guide for a specific destination, or None if not in dataset."""
+    info = STAY_DATASET.get(place_key.lower().strip())
+    if not info:
+        # Try partial match
+        for key in STAY_DATASET:
+            if key in place_key.lower() or place_key.lower() in key:
+                info = STAY_DATASET[key]
+                place_key = key
+                break
+    if not info:
+        return None
+
+    lines = [f"🏨 <b>Stay Options in {place_key.title()}:</b><br>"]
+    lines.append(f"📍 <b>Best Areas:</b> {info['areas']}<br>")
+    lines.append(f"⭐ <b>Most Popular:</b> {info['popular']}<br><br>")
+
+    # Price breakdown
+    if info.get("prices"):
+        lines.append("<b>💰 Price Ranges:</b><br>")
+        STAY_LABELS = {
+            "hostel": "🛏️ Hostel",
+            "budget_hotel": "🏩 Budget Hotel",
+            "guesthouse": "🏡 Guesthouse",
+            "homestay": "🏘️ Homestay",
+            "3star_hotel": "⭐ 3-Star Hotel",
+            "5star_hotel": "⭐⭐ 5-Star Hotel",
+            "resort": "🏖️ Resort",
+            "camping": "⛺ Camping",
+            "heritage_hotel": "🏰 Heritage Hotel",
+            "ashram": "🕉️ Ashram",
+            "dharamshala": "🙏 Dharamshala",
+            "houseboat": "🚢 Houseboat",
+            "treehouse": "🌳 Treehouse",
+            "tent_resort": "🏕️ Tent Resort",
+            "desert_camp": "🐪 Desert Camp",
+        }
+        for stype, price in info["prices"].items():
+            label = STAY_LABELS.get(stype, stype.replace("_", " ").title())
+            lines.append(f"{label} — {price}<br>")
+
+    lines.append(f"<br>💡 <b>Tip:</b> {info['tip']}<br>")
+    lines.append("📱 <b>Book on:</b> MakeMyTrip · OYO · Booking.com · Airbnb · Agoda")
+    return "".join(lines)
 
 
 def _process_chatbot(message):
@@ -696,6 +1258,9 @@ def _process_chatbot(message):
                         "from pune", "from bangalore", "from hyderabad"]
         things_to_do = ["things to do", "what to do", "activities", "places to see",
                         "places to visit", "attractions", "sightseeing", "tourism"]
+        stay_words   = ["stay", "hotel", "hostel", "resort", "guesthouse", "lodge", "oyo",
+                        "accommodation", "where to stay", "room", "airbnb", "homestay",
+                        "dharamshala", "camping", "tent", "booking", "check in"]
 
         if any(w in m for w in weather_words):
             title, extract = _wiki_search(detected_place)
@@ -746,6 +1311,33 @@ def _process_chatbot(message):
                 return _format_wiki_response(title, extract, tip)
             return tip
 
+        if any(w in m for w in stay_words):
+            # Try destination-specific dataset first
+            ds_info = _get_stay_info(detected_place)
+            if ds_info:
+                title, extract = _wiki_search(detected_place)
+                if title and extract:
+                    return _format_wiki_response(title, extract, ds_info)
+                return ds_info
+            # Fallback: generic stay guide with place name
+            stay_guide = (
+                f"🏨 <b>Where to Stay in {detected_place.title()}:</b><br>"
+                "🛏️ <b>Hostel</b> — ₹300–800/night (solo backpackers)<br>"
+                "🏩 <b>Budget Hotel / OYO</b> — ₹600–1,500/night<br>"
+                "🏡 <b>Guesthouse</b> — ₹800–2,000/night<br>"
+                "🏘️ <b>Homestay / Airbnb</b> — ₹1,200–3,000/night<br>"
+                "⭐ <b>3-Star Hotel</b> — ₹2,500–5,000/night<br>"
+                "⭐⭐ <b>5-Star Hotel</b> — ₹6,000–20,000/night<br>"
+                "🏖️ <b>Resort</b> — ₹5,000–25,000/night<br>"
+                "⛺ <b>Camping</b> — ₹500–3,000/night<br><br>"
+                "📱 <b>Book on:</b> MakeMyTrip · Booking.com · OYO · Airbnb · Agoda · Goibibo<br>"
+                "💡 <b>Tip:</b> Book at least 7–14 days ahead for weekends and holiday season!"
+            )
+            title, extract = _wiki_search(detected_place + " tourism")
+            if title and extract:
+                return _format_wiki_response(title, extract, stay_guide)
+            return stay_guide
+
         if any(w in m for w in things_to_do):
             title, extract = _wiki_search(detected_place + " tourism")
             if not title:
@@ -765,6 +1357,29 @@ def _process_chatbot(message):
         return (f"🗺️ I recognise <b>{detected_place.title()}</b> as an Indian destination! "
                 f"Live details unavailable right now.<br><br>"
                 f"Try: <i>'best time to visit {detected_place}'</i> or <i>'how to reach {detected_place}'</i>")
+
+    # ─── INTENT: Stay / Accommodation (global — no specific place needed) ───
+    global_stay_triggers = [
+        "where to stay", "types of stay", "which hotel", "best hotel", "cheap hotel",
+        "luxury hotel", "budget stay", "hostel vs hotel", "oyo rooms", "airbnb india",
+        "hotel booking", "resort booking", "accommodation type", "stay type",
+        "guesthouse", "dharamshala", "lodging", "room booking",
+        "camping india", "glamping", "homestay india", "5 star hotel", "3 star hotel"
+    ]
+    if any(t in m for t in global_stay_triggers):
+        return (
+            "🏨 <b>Stay Types for Indian Travel:</b><br>"
+            "🛏️ <b>Hostel / Dorm</b> — ₹300–800/night · Best: solo backpackers<br>"
+            "🏩 <b>Budget Hotel / OYO</b> — ₹600–1,500/night · Best: short stays<br>"
+            "🏡 <b>Guesthouse / B&B</b> — ₹800–2,000/night · Best: families<br>"
+            "🏘️ <b>Homestay / Airbnb</b> — ₹1,200–3,000/night · Best: local experience<br>"
+            "⭐ <b>3-Star Hotel</b> — ₹2,500–5,000/night · Best: comfort travel<br>"
+            "⭐⭐ <b>5-Star Hotel</b> — ₹6,000–20,000/night · Best: luxury trips<br>"
+            "🏖️ <b>Resort</b> — ₹5,000–25,000/night · Best: beach / hill getaways<br>"
+            "⛺ <b>Camping / Glamping</b> — ₹500–3,000/night · Best: adventure travel<br><br>"
+            "📱 <b>Best booking apps:</b> MakeMyTrip · OYO · Booking.com · Airbnb · Agoda<br>"
+            "💡 <b>Pro tip:</b> You can select your Stay Type right in the <b>Plan Trip</b> form!"
+        )
 
     # ─── INTENT: Destination Info (Wikipedia) — runs BEFORE nearby to avoid conflicts ───
     # Catches: "best time to visit X", "tell me about X", "what is X", etc.
