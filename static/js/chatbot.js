@@ -1,95 +1,275 @@
 /**
- * Rule-Based Chatbot Logic
- * This file is separate to keep the dashboard.js file clean.
- * It's imported by dashboard.html and called by App.Chatbot.getResponse()
+ * TripWise AI Chatbot v3.0
+ * - Real-time fetch to /api/chat backend NLP engine
+ * - 50+ intent patterns (handled server-side)
+ * - Wikipedia live lookup fallback
+ * - Contextual memory within session
+ * - GPS location + Nearby facility commands via CMD:: protocol
+ * - Proper typing indicator, error handling, input sanitization
  */
 
-window.getChatbotResponse = function(input) {
-    const i = input.toLowerCase().trim();
+window.getChatbotResponse = null; // Deprecated — now handled server-side via fetch
 
-    // 1. Greetings
-    if (i.includes("hello") || i.includes("hi") || i.includes("hey") || i.includes("morning") || i.includes("evening")) {
-        return "Hi there! I'm your Smart Travel Assistant. 👋 I can help you find nearby places, give safety tips, check weather advice, or manage your budget. What do you need?";
+// ─── Chatbot State (session memory) ───
+const ChatbotState = {
+    history: [],      // Stores last 5 exchanges for context
+    isTyping: false,  // Prevent double-sends
+    retryCount: 0     // Track consecutive API failures
+};
+
+/**
+ * Main entry point called from dashboard.js App.Chatbot.send()
+ * Accepts raw user input, manages the full send/receive/render cycle.
+ */
+window.handleChatbotMessage = async function(rawInput) {
+    const input = (rawInput || '').trim();
+    if (!input || ChatbotState.isTyping) return;
+    if (input.length > 500) {
+        appendChatMessage('bot', '⚠️ Message too long. Please keep it under 500 characters.');
+        return;
     }
 
-    // 2. Emergency
-    if (i.includes("emergency") || i.includes("danger") || i.includes("stuck") || i.includes("help me") || i.includes("police") || i.includes("hospital")) {
-        return "⚠️ I'm sorry to hear that. Please stay calm. Here are the national emergency numbers for India:<br><ul><li><b>Police:</b> 100 or 112</li><li><b>Ambulance:</b> 108</li><li><b>Fire:</b> 101</li></ul> If you are outside India, please dial 911 or your local equivalent immediately.";
-    }
+    // Add to history
+    ChatbotState.history.push({ role: 'user', text: input });
+    if (ChatbotState.history.length > 10) ChatbotState.history.shift();
 
-    // 3. Location
-    if (i.includes("where am i") || i.includes("my location") || i.includes("find me") || i.includes("lost")) {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(pos => {
-                const lat = pos.coords.latitude;
-                const lon = pos.coords.longitude;
-                const mapLink = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=16/${lat}/${lon}`;
-                
-                const chatWindow = document.getElementById('chatWindow');
-                if (chatWindow) {
-                    const msgDiv = document.createElement('div');
-                    msgDiv.className = `chat-message bot`;
-                    msgDiv.innerHTML = `<p>📍 I've found your exact coordinates! <br><a href="${mapLink}" target="_blank" style="color: #00c6ff;">Click here to reveal your location on the map.</a></p>`;
-                    chatWindow.appendChild(msgDiv);
-                    chatWindow.scrollTop = chatWindow.scrollHeight;
-                }
-            }, () => {
-                const chatWindow = document.getElementById('chatWindow');
-                 if (chatWindow) {
-                    const msgDiv = document.createElement('div');
-                    msgDiv.className = `chat-message bot`;
-                    msgDiv.innerHTML = `<p>Sorry, I couldn't access your GPS. Please make sure you've enabled location permissions for this site.</p>`;
-                    chatWindow.appendChild(msgDiv);
-                    chatWindow.scrollTop = chatWindow.scrollHeight;
-                }
-            });
-            return "Pinging your device's GPS chip... Please wait a second.";
+    // Show typing indicator
+    ChatbotState.isTyping = true;
+    showTypingIndicator();
+
+    try {
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: input, history: ChatbotState.history.slice(-4) }),
+            signal: AbortSignal.timeout(8000) // 8s timeout
+        });
+
+        hideTypingIndicator();
+
+        if (!response.ok) {
+            throw new Error(`Server responded with ${response.status}`);
+        }
+
+        const data = await response.json();
+        const reply = data.reply || "I'm having trouble responding. Please try again!";
+        ChatbotState.retryCount = 0;
+
+        // Handle special CMD:: commands
+        if (reply.startsWith('CMD::')) {
+            processChatCommand(reply);
         } else {
-            return "Sorry, your browser doesn't support geolocation tracking.";
+            appendChatMessage('bot', reply);
+            ChatbotState.history.push({ role: 'bot', text: reply });
         }
-    }
-    
-    // 4. Safety Tips
-    if (i.includes("safety") || i.includes("tips") || i.includes("secure") || i.includes("scam")) {
-        return "Here are my top travel safety rules:<br><ul><li>Keep digital copies of your passport/ID on your phone.</li><li>Avoid walking alone in unlit alleys at night.</li><li>Never leave drinks unattended.</li><li>Use your hotel safe for valuables.</li><li>Use a VPN on public airport/cafe Wi-Fi.</li></ul>";
-    }
 
-    // 5. Help / Capabilities
-    if (i.includes("help") || i.includes("what can you do") || i.includes("features") || i.includes("menu")) {
-        return "I am wired into your dashboard! I can: <br><ul><li>Find you <b>'nearby ATMs/food'</b></li><li>Give you <b>'safety tips'</b></li><li>Provide emergency <b>'contacts'</b></li><li>Find out <b>'where am I'</b></li><li>Offer <b>'weather advice'</b></li></ul> Try typing one of those!";
-    }
-    
-    // 6. Nearby (Enhanced) - Includes facility routing for hospitals/fuel
-    if (i.includes("find nearby") || i.includes("where is the nearest") || i.includes("atm") || i.includes("fuel") || i.includes("petrol") || i.includes("restaurant") || i.includes("food") || i.includes("famous place") || i.includes("attraction") || i.includes("facilities") || i.includes("facility")) {
-        if (i.includes("atm") || i.includes("fuel") || i.includes("petrol") || i.includes("restaurant") || i.includes("food") || i.includes("hospital") || i.includes("facilities") || i.includes("facility")) {
-            return 'CMD::NEARBY_AMENITIES';
+    } catch (err) {
+        hideTypingIndicator();
+        ChatbotState.retryCount++;
+
+        if (err.name === 'TimeoutError' || err.name === 'AbortError') {
+            appendChatMessage('bot',
+                '⏱️ The server is taking too long. Please check your connection and try again.');
+        } else if (ChatbotState.retryCount >= 3) {
+            // Fallback to local responses after 3 consecutive failures
+            const localReply = getLocalFallback(input);
+            appendChatMessage('bot', localReply + '<br><br><i>(Offline mode — server unreachable)</i>');
+        } else {
+            appendChatMessage('bot',
+                '⚠️ Connection error. Please ensure the app server is running and try again.');
         }
-        return 'CMD::NEARBY_ATTRACTIONS';
+    } finally {
+        ChatbotState.isTyping = false;
+    }
+};
+
+/**
+ * Process special CMD:: directives returned by the server.
+ * Opens real Google Maps searches and live map links.
+ */
+function processChatCommand(cmd) {
+
+    // ─── FIND NEARBY: Opens live Google Maps search ───
+    if (cmd.startsWith('CMD::FIND_NEARBY::')) {
+        const facility = cmd.replace('CMD::FIND_NEARBY::', '');
+
+        // Try to get user's GPS first for a more accurate map link
+        if (navigator.geolocation) {
+            appendChatMessage('bot', `🔍 Getting your location to find the nearest <b>${facility}</b>...`);
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const lat = pos.coords.latitude;
+                    const lon = pos.coords.longitude;
+                    // Google Maps search: nearest facility near coordinates
+                    const gmapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(facility)}/@${lat},${lon},15z`;
+                    const osmUrl = `https://www.openstreetmap.org/search?query=${encodeURIComponent(facility)}&lat=${lat}&lon=${lon}`;
+                    appendChatMessage('bot',
+                        `📍 Found your location! Here's the nearest <b>${facility}</b>:<br><br>` +
+                        `<a href="${gmapsUrl}" target="_blank" rel="noopener" style="color:#38bdf8; font-weight:600;">` +
+                        `🗺️ Open on Google Maps</a><br>` +
+                        `<a href="${osmUrl}" target="_blank" rel="noopener" style="color:#a78bfa; font-size:0.9rem;">` +
+                        `🌐 Or open on OpenStreetMap</a>`
+                    );
+                },
+                () => {
+                    // GPS denied — give a generic map search anyway
+                    const gmapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(facility + ' near me')}`;
+                    appendChatMessage('bot',
+                        `🔍 Search for <b>${facility}</b> on Google Maps:<br><br>` +
+                        `<a href="${gmapsUrl}" target="_blank" rel="noopener" style="color:#38bdf8; font-weight:600;">` +
+                        `🗺️ Find ${facility} near me</a><br><br>` +
+                        `<i>(Enable location for a more precise result)</i>`
+                    );
+                },
+                { timeout: 6000 }
+            );
+        } else {
+            const gmapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(facility + ' near me')}`;
+            appendChatMessage('bot',
+                `<a href="${gmapsUrl}" target="_blank" rel="noopener" style="color:#38bdf8;">` +
+                `🗺️ Search for ${facility} on Google Maps</a>`);
+        }
+        return;
     }
 
-    // 7. Weather Info
-    if (i.includes("weather") || i.includes("rain") || i.includes("hot") || i.includes("umbrella")) {
-        return "☀️ While I don't have a live radar display, I recommend packing layers! If you are traveling in monsoon or winter, always keep a small folding umbrella or light jacket in your daypack. Always check the local forecast before heading out for a trek!";
-    }
-    
-    // 8. Flight / Booking Info
-    if (i.includes("flight") || i.includes("hotel") || i.includes("book") || i.includes("ticket")) {
-        return "✈️ I don't handle direct bookings just yet, but I recommend checking out Skyscanner or Google Flights for tickets, and Booking.com or Agoda for stays. Stick to our Budget Planner when booking to make sure you stay within your limits!";
+    // ─── LOCATE ME: Shows exact GPS coordinates + map link ───
+    if (cmd === 'CMD::LOCATE_ME') {
+        appendChatMessage('bot', '📡 Checking your GPS... please allow location access.');
+        if (!navigator.geolocation) {
+            appendChatMessage('bot', '❌ Your browser does not support geolocation.');
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const lat = pos.coords.latitude.toFixed(6);
+                const lon = pos.coords.longitude.toFixed(6);
+                const acc = Math.round(pos.coords.accuracy);
+                const gmapsUrl = `https://www.google.com/maps?q=${lat},${lon}`;
+                const osmUrl = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=16/${lat}/${lon}`;
+                appendChatMessage('bot',
+                    `📍 <b>Your Location Found!</b><br>` +
+                    `<code>${lat}, ${lon}</code><br>` +
+                    `<small>Accuracy: ±${acc}m</small><br><br>` +
+                    `<a href="${gmapsUrl}" target="_blank" rel="noopener" style="color:#38bdf8; font-weight:600;">🗺️ View on Google Maps</a><br>` +
+                    `<a href="${osmUrl}" target="_blank" rel="noopener" style="color:#a78bfa; font-size:0.9rem;">🌐 View on OpenStreetMap</a>`
+                );
+            },
+            (err) => {
+                const msgs = {
+                    1: 'Location permission denied. Enable it in your browser settings.',
+                    2: 'GPS signal unavailable. Move to an open area.',
+                    3: 'Location request timed out. Try again.'
+                };
+                appendChatMessage('bot', `❌ ${msgs[err.code] || 'GPS error.'}`);
+            },
+            { timeout: 10000, maximumAge: 60000, enableHighAccuracy: true }
+        );
+        return;
     }
 
-    // 9. Budget Planner triggers
-    if (i.includes("budget") || i.includes("expense") || i.includes("money") || i.includes("spend")) {
-        return "💰 You can manage your money by clicking the 'Budget Tracker' card on the dashboard. I will automatically calculate your spending based on your daily travel style (Luxury, Mid-Range, or Backpacker).";
+    // ─── NEARBY ATTRACTIONS: Opens Google Maps tourist searches ───
+    if (cmd === 'CMD::NEARBY_ATTRACTIONS') {
+        if (navigator.geolocation) {
+            appendChatMessage('bot', '🗺️ Finding tourist attractions near you...');
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const lat = pos.coords.latitude;
+                    const lon = pos.coords.longitude;
+                    const gmapsUrl = `https://www.google.com/maps/search/tourist+attractions/@${lat},${lon},14z`;
+                    appendChatMessage('bot',
+                        `🏛️ <b>Tourist Attractions Near You:</b><br><br>` +
+                        `<a href="${gmapsUrl}" target="_blank" rel="noopener" style="color:#38bdf8; font-weight:600;">🗺️ Open on Google Maps</a><br><br>` +
+                        `Or use the <b>Nearby Attractions</b> card on your dashboard for a detailed list with descriptions!`
+                    );
+                },
+                () => {
+                    const gmapsUrl = `https://www.google.com/maps/search/tourist+attractions+near+me`;
+                    appendChatMessage('bot',
+                        `<a href="${gmapsUrl}" target="_blank" rel="noopener" style="color:#38bdf8;">🗺️ Find tourist attractions near me</a>`);
+                },
+                { timeout: 6000 }
+            );
+        } else {
+            appendChatMessage('bot',
+                `<a href="https://www.google.com/maps/search/tourist+attractions+near+me" target="_blank" style="color:#38bdf8;">🗺️ Find tourist attractions on Google Maps</a>`);
+        }
+        return;
     }
 
-    // 10. Thank you / Bye
-    if (i.includes("thanks") || i.includes("thank you") || i.includes("awesome") || i.includes("cool")) {
-        return "You're very welcome! I'm always here to help. Have a fantastic trip! 🌍";
-    }
-    if (i.includes("bye") || i.includes("goodbye")) {
-        return "Safe travels! See you later! ✈️";
-    }
-
-    // Default Fallback
-    return "I'm sorry, I process travel-related commands. Try asking me for 'safety tips', 'emergency help', 'find ATMs', or 'where am I'.";
+    // Unrecognised command fallback
+    appendChatMessage('bot', 'Processing your request...');
 }
+
+/**
+ * Offline fallback for when the server is completely unreachable.
+ * Basic keyword matching for critical use cases.
+ */
+function getLocalFallback(input) {
+    const m = input.toLowerCase();
+    if (m.includes('emergency') || m.includes('help me') || m.includes('sos')) {
+        return '⚠️ <b>Emergency Numbers (India):</b><br>Police: 100/112 | Ambulance: 108 | Fire: 101';
+    }
+    if (m.includes('budget') || m.includes('cost')) {
+        return '💰 Budget tips: ₹800-1500/day (budget) | ₹2000-5000/day (mid) | ₹8000+/day (luxury)';
+    }
+    if (m.includes('safe') || m.includes('safety')) {
+        return '🛡️ Keep copies of IDs, use only official transport, avoid unlit areas at night.';
+    }
+    return 'I am your travel assistant. For emergencies call 112 (India) or 911 (international). Ask me about safety, budget, transport or destinations!';
+}
+
+/**
+ * Appends a message bubble to the chat window.
+ * Supports HTML content for rich responses.
+ */
+function appendChatMessage(sender, htmlContent) {
+    const chatWindow = document.getElementById('chatWindow');
+    if (!chatWindow) return;
+
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `chat-message ${sender}`;
+    msgDiv.innerHTML = `<p>${htmlContent}</p>`;
+
+    // Animate in
+    msgDiv.style.opacity = '0';
+    msgDiv.style.transform = 'translateY(10px)';
+    chatWindow.appendChild(msgDiv);
+
+    requestAnimationFrame(() => {
+        msgDiv.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+        msgDiv.style.opacity = '1';
+        msgDiv.style.transform = 'translateY(0)';
+    });
+
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+}
+
+/**
+ * Shows the animated typing indicator bubble.
+ */
+function showTypingIndicator() {
+    const indicator = document.getElementById('bot-typing-indicator');
+    if (indicator) indicator.style.display = 'flex';
+    const chatWindow = document.getElementById('chatWindow');
+    if (chatWindow) chatWindow.scrollTop = chatWindow.scrollHeight;
+}
+
+/**
+ * Hides the typing indicator bubble.
+ */
+function hideTypingIndicator() {
+    const indicator = document.getElementById('bot-typing-indicator');
+    if (indicator) indicator.style.display = 'none';
+}
+
+/**
+ * Clears the chat history (both UI and memory).
+ */
+window.clearChatHistory = function() {
+    ChatbotState.history = [];
+    const chatWindow = document.getElementById('chatWindow');
+    if (!chatWindow) return;
+    // Keep only the first welcome message
+    const messages = chatWindow.querySelectorAll('.chat-message');
+    messages.forEach((msg, i) => { if (i > 0) msg.remove(); });
+};

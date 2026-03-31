@@ -30,52 +30,43 @@
     <h2>Welcome Back, {{ user_name }}!</h2>
     <p>Explore your trips and plan new adventures.</p>
 
-    <div class="cards">
-      <div class="card option-card" data-action="plan">
-        <div class="card-bg" style="background-image: url('https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=500&q=80');"></div>
-        <div class="card-content">
-          <img src="https://cdn-icons-png.flaticon.com/512/684/684908.png" alt="">
-          <h3>Plan Trip</h3>
-          <p>Get a smart travel plan with destination, budget, and duration.</p>
-        </div>
+      <div class="cards-layout cards">
+
+      <!-- 1. Plan Trip -->
+      <div class="glass-card card option-card" data-action="plan">
+        <div class="glass-icon"><i class="fas fa-map-marked-alt"></i></div>
+        <h3>Plan Trip</h3>
+        <p>Get a smart travel plan with destination, budget, and duration.</p>
       </div>
 
-      <div class="card option-card" data-action="budget">
-        <div class="card-bg" style="background-image: url('https://images.unsplash.com/photo-1567427017947-545c5f8d16ad?auto=format&fit=crop&w=500&q=80');"></div>
-        <div class="card-content">
-          <img src="https://cdn-icons-png.flaticon.com/512/2331/2331970.png" alt="">
-          <h3>Budget Tracker</h3>
-          <p>Track expenses and save smartly while traveling.</p>
-        </div>
+      <!-- 2. Budget Tracker -->
+      <div class="glass-card card option-card" data-action="budget">
+        <div class="glass-icon"><i class="fas fa-wallet"></i></div>
+        <h3>Budget Tracker</h3>
+        <p>Track expenses and save smartly while traveling.</p>
       </div>
 
-      <div class="card option-card" data-action="nearby">
-        <div class="card-bg" style="background-image: url('https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=500&q=80');"></div>
-        <div class="card-content">
-          <img src="https://cdn-icons-png.flaticon.com/512/252/252025.png" alt="">
-          <h3>Nearby Attractions</h3>
-          <p>Get real-time recommendations for popular places nearby.</p>
-        </div>
+      <!-- 3. Nearby Attractions -->
+      <div class="glass-card card option-card" data-action="nearby">
+        <div class="glass-icon"><i class="fas fa-map-pin"></i></div>
+        <h3>Nearby Attractions</h3>
+        <p>Get real-time recommendations for popular places nearby.</p>
       </div>
 
-      <div class="card option-card" data-action="live">
-        <div class="card-bg" style="background-image: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=500&q=80');"></div>
-        <div class="card-content">
-          <img src="https://cdn-icons-png.flaticon.com/512/854/854878.png" alt="">
-          <h3>Live Tracker</h3>
-          <p>Track your real-time location and route progress easily.</p>
-        </div>
+      <!-- 4. Live Tracker -->
+      <div class="glass-card card option-card" data-action="live">
+        <div class="glass-icon"><i class="fas fa-location-arrow"></i></div>
+        <h3>Live Tracker</h3>
+        <p>Track your real-time location and route progress easily.</p>
       </div>
 
-      <div class="card option-card" data-action="tips">
-        <div class="card-bg" style="background-image: url('https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=500&q=80');"></div>
-        <div class="card-content">
-          <img src="https://cdn-icons-png.flaticon.com/512/1029/1029183.png" alt="">
-          <h3>Travel Tips</h3>
-          <p>Get safety advice and best tips for smooth travel experiences.</p>
-        </div>
+      <!-- 5. Travel Tips -->
+      <div class="glass-card card option-card" data-action="tips">
+        <div class="glass-icon"><i class="fas fa-star"></i></div>
+        <h3>Travel Tips</h3>
+        <p>Get safety advice and best tips for smooth travel experiences.</p>
       </div>
-      
+
     </div>
     
     <div style="display:none;" id="trips"></div>
@@ -177,8 +168,9 @@
       </div>
       </div>
 
-      <div id="map" style="position: relative;">
-          <!-- Custom ML ETA Floating Box -->
+      <div style="position: relative;">
+          <div id="map"></div>
+          <!-- Custom ML ETA Floating Box (Moved outside #map so Leaflet doesn't destroy it) -->
           <div id="route-summary" style="display:none; position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 1000; background: rgba(10, 15, 20, 0.85); padding: 15px 25px; border-radius: 15px; backdrop-filter: blur(15px); color: white; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.7); border: 1px solid rgba(255,255,255,0.1); width: 90%; max-width: 400px; pointer-events: none;">
               <div style="font-size: 0.9rem; margin-bottom: 5px; color: #ccc;">📍 Distance left: <span id="route-dist" style="font-weight: bold; color: var(--color-primary);">-- km</span></div>
               <div style="font-size: 1.1rem; font-weight: bold; line-height: 1.4;">
@@ -196,12 +188,18 @@
       <h2 id="live-selector-title">Select a Trip to Track</h2>
       <p style="opacity: 0.8;">Choose any of your planned trips to start live tracking.</p>
       
-      <div style="margin: 15px 0; text-align: left; display: none;">
-          <!-- Intentionally hidden per user request to restrict to Driving mode only -->
-          <label for="live_travel_mode" style="font-weight: bold; font-size: 0.9rem;">Travel Mode:</label>
-          <select id="live_travel_mode" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-family: 'Plus Jakarta Sans', sans-serif;">
-              <option value="driving">🚗 Driving</option>
+      <div style="margin: 15px 0; text-align: left;">
+          <label for="live_weather" style="font-weight: bold; font-size: 0.9rem;">🚗 Weather Conditions (For ML ETA):</label>
+          <select id="live_weather" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-family: 'Plus Jakarta Sans', sans-serif; background: rgba(255,255,255,0.9); margin-top: 5px;">
+              <option value="clear">☀️ Clear / Dry</option>
+              <option value="rain">🌧️ Rain / Wet Roads</option>
+              <option value="fog">🌫️ Fog / Low Visibility</option>
+              <option value="snow">❄️ Snow / Ice</option>
           </select>
+          <div style="font-size: 0.8rem; color: #555; margin-top: 4px; display: flex; align-items: center; gap: 5px;">
+              <span style="display:inline-block; width:8px; height:8px; background:#49d861; border-radius:50%;"></span>
+              Day curve (Weekend vs Weekday) auto-calculated by system clock.
+          </div>
       </div>
 
       <ul id="liveTrackTripsList" class="my-trips-list-container" style="max-height: 400px; overflow-y: auto;">
@@ -266,7 +264,17 @@
       <h2 id="chatbot-title">AI Assistant</h2>
       <div class="chat-window" id="chatWindow">
         <div class="chat-message bot">
-          <p>Hi there! I'm your AI assistant. How can I help? You can ask me for "safety tips", "emergency contacts", or "where am I".</p>
+          <p>👋 Hi! I'm your <b>AI Travel Assistant</b>.<br><br>
+          I can answer <b>any travel question</b> you have — just type naturally! For example:<br>
+          <ul style="margin: 8px 0 0 0; padding-left: 18px; line-height: 1.8;">
+            <li>"Find nearest hospital"</li>
+            <li>"Tell me about Goa"</li>
+            <li>"What should I pack?"</li>
+            <li>"Budget tips for India"</li>
+            <li>"I need emergency help"</li>
+            <li>"Best time to visit Kerala"</li>
+          </ul>
+          </p>
         </div>
         <div class="chat-message bot typing" id="bot-typing-indicator" style="display: none;">
             <p><span></span><span></span><span></span></p>
@@ -283,20 +291,34 @@
       <i class="fas fa-robot"></i>
   </div>
 
-  <!-- Global error handling for missing App object -->
+  <!-- Custom Toast Notifier & Global Fallbacks -->
+  <div id="toast-container"></div>
   <script>
+    function showToast(message) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'custom-toast';
+      toast.innerHTML = `<i class="fas fa-info-circle"></i> &nbsp; ${message}`;
+      container.appendChild(toast);
+      
+      setTimeout(() => {
+          toast.classList.add('toast-fadeout');
+          setTimeout(() => toast.remove(), 500);
+      }, 3500);
+    }
+
     // Create a placeholder for App if dashboard.js fails to load
     window.App = window.App || {
       Budget: {
-        closeBudgetTracker: function() { console.warn('Budget module not loaded'); },
-        estimateBudget: function() { alert('Please wait for the page to fully load.'); }
+        closeBudgetTracker: function() { showToast('Warning: Budget module failed to load. Internal Error limit bypassed.'); },
+        estimateBudget: function() { showToast('Loading Budget Matrix. Please wait...'); }
       },
       Chatbot: {
-        close: function() { console.warn('Chatbot module not loaded'); },
-        open: function() { alert('Chatbot is loading. Please wait a moment.'); }
+        close: function() { console.warn('Chatbot module offline'); },
+        open: function() { showToast('Booting Artificial Intelligence Assistant. Please wait...'); }
       },
       Track: {
-        recalculateRoute: function() { alert('Live tracking not active.'); }
+        recalculateRoute: function() { showToast('Live routing tracking not currently active.'); }
       }
     };
   </script>

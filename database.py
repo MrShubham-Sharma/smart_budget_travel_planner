@@ -47,6 +47,24 @@ def init_db():
         )
     ''')
 
+    # NEW: Admin Tracking Table
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS activity_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            ip_address TEXT,
+            endpoint TEXT,
+            action TEXT NOT NULL,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    # NEW: Migration to inject is_admin to users if missing
+    cur.execute("PRAGMA table_info(users)")
+    cols = [r[1] for r in cur.fetchall()]
+    if 'is_admin' not in cols:
+        cur.execute("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0")
+
     conn.commit()
     conn.close()
 
@@ -75,15 +93,27 @@ def add_user(name, email, hashed_password):
 # NEW: Replaces validate_user for security
 def get_user_by_email(email):
     """Fetches a user by email to allow for password hash checking.
-       Returns (id, name, hashed_password)"""
+       Returns (id, name, hashed_password, is_admin)"""
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-    cur.execute(
-        "SELECT id, name, password FROM users WHERE email = ?",
-        (email,)
-    )
-    user = cur.fetchone()
+    # Safely fetch is_admin by checking if it exists internally, but since we migrated init_db, it will.
+    try:
+        cur.execute(
+            "SELECT id, name, password, is_admin FROM users WHERE email = ?",
+            (email,)
+        )
+        user = cur.fetchone()
+    except sqlite3.OperationalError:
+        # Fallback if the user hasn't run the init_db migration yet
+        cur.execute(
+            "SELECT id, name, password FROM users WHERE email = ?",
+            (email,)
+        )
+        user_raw = cur.fetchone()
+        user = (user_raw[0], user_raw[1], user_raw[2], 0) if user_raw else None
+        
     conn.close()
+    return user
     return user
 
 # ------------------
@@ -223,7 +253,74 @@ def get_expenses(trip_id):
     return data
 
 # ------------------
-# 4. INITIALIZATION
+# 4. ADMIN & ANALYTICS FUNCTIONS
+# ------------------
+
+def log_activity(user_id, ip_address, endpoint, action):
+    """Silently logs an action or endpoint hit to the database."""
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    try:
+        cur.execute('''
+            INSERT INTO activity_logs (user_id, ip_address, endpoint, action)
+            VALUES (?, ?, ?, ?)
+        ''', (user_id, ip_address, endpoint, action))
+        conn.commit()
+    except Exception as e:
+        print(f"Failed to log activity: {e}")
+    finally:
+        conn.close()
+
+def get_admin_dashboard_metrics():
+    """Aggregates all analytical metrics for the premium Admin panel."""
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    
+    metrics = {
+        "total_users": 0,
+        "total_trips": 0,
+        "recent_logs": [],
+        "today_traffic": 0
+    }
+    
+    try:
+        cur.execute("SELECT COUNT(id) FROM users")
+        metrics["total_users"] = cur.fetchone()[0]
+        
+        cur.execute("SELECT COUNT(id) FROM trips")
+        metrics["total_trips"] = cur.fetchone()[0]
+        
+        # Get live traffic for today
+        cur.execute("SELECT COUNT(id) FROM activity_logs WHERE timestamp >= date('now')")
+        metrics["today_traffic"] = cur.fetchone()[0]
+        
+        # Get the 50 most recent actions (join with users table to get the name if user_id exists)
+        cur.execute('''
+            SELECT a.id, u.name, u.email, a.ip_address, a.endpoint, a.action, a.timestamp 
+            FROM activity_logs a
+            LEFT JOIN users u ON a.user_id = u.id
+            ORDER BY a.timestamp DESC
+            LIMIT 50
+        ''')
+        metrics["recent_logs"] = cur.fetchall()
+        
+    except Exception as e:
+        print(f"Error fetching metrics: {e}")
+    finally:
+        conn.close()
+        
+    return metrics
+
+def make_user_admin(email):
+    """Utility to brute-force a specific user to Admin level."""
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("UPDATE users SET is_admin = 1 WHERE email = ?", (email,))
+    conn.commit()
+    conn.close()
+
+# ------------------
+# 5. INITIALIZATION
 # ------------------
 
 # Run init_db() once when this module is imported.

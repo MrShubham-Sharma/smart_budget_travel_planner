@@ -30,7 +30,16 @@
                         <i class="fas fa-lock"></i>
                         <input type="password" id="password" placeholder="Password" required>
                     </div>
-                    <button type="submit">Login</button>
+                    
+                    <div class="input-group remember-me-group">
+                        <input type="checkbox" id="remember">
+                        <label for="remember">Remember me</label>
+                    </div>
+
+                    <button type="submit" id="loginBtn">
+                        <span id="loginBtnText">Secure Login</span>
+                        <div class="css-loader" id="loginLoader" style="display: none;"></div>
+                    </button>
                     <p class="form-message" id="message" style="display:none;"></p>
                 </form>
                 <div class="switch">

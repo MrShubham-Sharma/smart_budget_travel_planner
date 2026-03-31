@@ -34,7 +34,16 @@
                         <i class="fas fa-lock"></i>
                         <input type="password" id="password" placeholder="Password" required>
                     </div>
-                    <button type="submit">Sign Up</button>
+                    
+                    <div class="password-strength-container">
+                        <div id="password-strength-bar" class="password-strength-bar"></div>
+                    </div>
+                    <p id="password-feedback" class="password-feedback"></p>
+
+                    <button type="submit" id="signupBtn">
+                        <span id="signupBtnText">Create Account</span>
+                        <div class="css-loader" id="signupLoader" style="display: none;"></div>
+                    </button>
                     <p class="form-message" id="message" style="display:none;"></p>
                 </form>
                 <div class="switch">

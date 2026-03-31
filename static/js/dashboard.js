@@ -758,6 +758,15 @@ const App = {
      * NEW: Smart Budget Estimator
      */
     estimateBudget: async function() {
+        // 0. CHECK LOCATION COMPATIBILITY (India Only)
+        // Ensure the autocomplete result contains 'india'
+        const destinationStr = App.Util.getVal('destination') || '';
+        if (destinationStr.trim() !== '' && !destinationStr.toLowerCase().includes('india')) {
+            alert("Sorry, our Machine Learning Budget Engine currently only supports travel within India.");
+            App.Util.setVal('budget', '');
+            return;
+        }
+
         // 1. Get number of days from trip dates
         const startDateStr = App.Util.getVal('start_date');
         const endDateStr = App.Util.getVal('end_date');
@@ -777,7 +786,13 @@ const App = {
         const travelStyle = document.querySelector('input[name="travel_style"]:checked').value;
         const foodType = document.querySelector('input[name="food_type"]:checked').value;
 
-        App.Util.setVal('budget', 'Loading...');
+        // Calculate Peak Season based on highly-traveled months (12, 1, 6, 7)
+        const startMonth = startDate.getMonth() + 1;
+        let calcSeason = 'shoulder';
+        if ([12, 1, 6, 7].includes(startMonth)) calcSeason = 'peak';
+        else if ([2, 3, 8, 9].includes(startMonth)) calcSeason = 'off-peak';
+
+        App.Util.setVal('budget', 'Loading ML Matrix...');
 
         // 3. Request ML Budget Prediction
         try {
@@ -789,7 +804,8 @@ const App = {
                     traveler_type: travelerType,
                     group_size: groupSize,
                     travel_style: travelStyle,
-                    food_type: foodType
+                    food_type: foodType,
+                    season: calcSeason
                 })
             });
             const data = await response.json();
@@ -961,17 +977,27 @@ Total Estimated Budget: ₹${estimatedBudget}
       }, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
     },
     
-    // Extracted ML ETA function
+    // Extracted ML ETA function integrating the new Hypercube
     updateMLEta: async function(distanceKm) {
         if (distanceKm <= 0) return;
         try {
-            const hour = new Date().getHours();
-            const mode = document.getElementById('live_travel_mode') ? document.getElementById('live_travel_mode').value : 'driving';
+            const now = new Date();
+            const hour = now.getHours();
+            const dayOfWeek = now.getDay();
+            const dayType = (dayOfWeek === 0 || dayOfWeek === 6) ? 'weekend' : 'weekday';
+            
+            const weatherSelect = document.getElementById('live_weather');
+            const weather = weatherSelect ? weatherSelect.value : 'clear';
             
             const res = await fetch('/api/predict-eta', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ distance_km: distanceKm, hour_of_day: hour, travel_mode: mode })
+                body: JSON.stringify({ 
+                    distance_km: distanceKm, 
+                    hour_of_day: hour, 
+                    day_type: dayType, 
+                    weather: weather 
+                })
             });
             const data = await res.json();
             if (data.status === 'success') {
@@ -982,9 +1008,10 @@ Total Estimated Budget: ₹${estimatedBudget}
                 let dateStr = eta.toLocaleDateString([], { month: 'short', day: 'numeric' });
                 let timeStr = eta.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 
-                if (App.Elements['route-eta']) {
-                    App.Elements['route-summary'].style.display = 'block';
-                    App.Elements['route-eta'].innerHTML = `${timeStr} (${dateStr})
+                // We use document.getElementById instead of App.Elements incase caching detached it
+                if (document.getElementById('route-eta')) {
+                    document.getElementById('route-summary').style.display = 'block';
+                    document.getElementById('route-eta').innerHTML = `${timeStr} (${dateStr})
                                                            <br><span style="color:#aaa; font-size:0.9rem; font-weight: normal;">${Math.ceil(durationMins)} min remaining</span>`;
                 }
             }
@@ -1275,55 +1302,59 @@ Total Estimated Budget: ₹${estimatedBudget}
       close: function() {
           if (App.Elements.chatbotModal) App.Elements.chatbotModal.classList.remove('show');
       },
-      sendMessage: function() {
-          const input = App.Elements.chatInput.value.trim();
-          if (input === "") return;
+      sendMessage: async function() {
+          const input = App.Elements.chatInput ? App.Elements.chatInput.value.trim() : '';
+          if (!input) return;
+          if (input.length > 500) {
+              this.addMessage('⚠️ Please keep messages under 500 characters.', 'bot');
+              return;
+          }
           
           this.addMessage(input, 'user');
           App.Elements.chatInput.value = "";
           
-          // Show typing indicator
-          App.Elements['bot-typing-indicator'].style.display = 'flex';
-          App.Elements.chatWindow.scrollTop = App.Elements.chatWindow.scrollHeight;
+          // Show typing indicator immediately
+          if (App.Elements['bot-typing-indicator']) {
+              App.Elements['bot-typing-indicator'].style.display = 'flex';
+          }
+          if (App.Elements.chatWindow) {
+              App.Elements.chatWindow.scrollTop = App.Elements.chatWindow.scrollHeight;
+          }
           
-          // Get bot response
-          setTimeout(() => {
-              App.Elements['bot-typing-indicator'].style.display = 'none';
-              const response = this.getResponse(input);
-              
-              // Check for special commands
-              if (response === 'CMD::NEARBY_ATTRACTIONS') {
-                  this.addMessage("Sure! Looking up famous places and attractions for you...", 'bot');
-                  this.close(); // Close chatbot
-                  App.Nearby.openNearbyAttractions('attractions'); // Open nearby
-              } else if (response === 'CMD::NEARBY_AMENITIES') {
-                  this.addMessage("Sure! Looking up nearby facilities and ATMs for you...", 'bot');
-                  this.close(); // Close chatbot
-                  App.Nearby.openNearbyAttractions('amenities'); // Open nearby
-              } else {
-                  this.addMessage(response, 'bot');
+          // ─── Call the AI backend via handleChatbotMessage from chatbot.js ───
+          if (typeof window.handleChatbotMessage === 'function') {
+              await window.handleChatbotMessage(input);
+          } else {
+              // Fallback if chatbot.js fails to load
+              if (App.Elements['bot-typing-indicator']) {
+                  App.Elements['bot-typing-indicator'].style.display = 'none';
               }
-          }, 1000); // Simulate bot thinking
+              this.addMessage('⚠️ AI module offline. Emergency numbers: Police 100/112, Ambulance 108.', 'bot');
+          }
       },
       addMessage: function(message, sender) {
           const msgDiv = document.createElement('div');
           msgDiv.className = `chat-message ${sender}`;
           msgDiv.innerHTML = `<p>${message}</p>`; // Allow HTML from chatbot
+          msgDiv.style.opacity = '0';
+          msgDiv.style.transform = 'translateY(8px)';
           
-          // Insert before the typing indicator
+          // Insert before typing indicator
           if (App.Elements.chatWindow && App.Elements['bot-typing-indicator']) {
             App.Elements.chatWindow.insertBefore(msgDiv, App.Elements['bot-typing-indicator']);
-            // Scroll to bottom
             App.Elements.chatWindow.scrollTop = App.Elements.chatWindow.scrollHeight;
           }
+          
+          // Animate in
+          requestAnimationFrame(() => {
+              msgDiv.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+              msgDiv.style.opacity = '1';
+              msgDiv.style.transform = 'translateY(0)';
+          });
       },
+      // Legacy getResponse kept for backward compat — no longer used
       getResponse: function(input) {
-          if (typeof window.getChatbotResponse === 'function') {
-            return window.getChatbotResponse(input); // Call function from chatbot.js
-          } else {
-            console.error("chatbot.js is not loaded or getChatbotResponse is not defined");
-            return "Sorry, my brain is offline right now.";
-          }
+          return "Please upgrade — using async backend now.";
       }
   },
   
