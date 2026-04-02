@@ -1485,35 +1485,51 @@ def _process_chatbot(message):
     # ─── INTENT: Safety ───
     if any(w in m for w in ["safe", "safety", "secure", "scam", "fraud", "theft", "pickpocket",
                              "unsafe", "crime", "danger zone", "precaution"]):
-        return ("🛡️ <b>Travel Safety Checklist:</b><br>"
-                "<ul><li>Keep digital copies of passport/visa on cloud storage.</li>"
+        return ("🛡️ <b>Travel Safety Checklist (India):</b><br>"
+                "<ul><li>Carry your <b>Aadhaar card / Voter ID</b> — required for hotel check-ins and trains in India.</li>"
                 "<li>Share your live location with a trusted contact.</li>"
                 "<li>Use our <b>Live Tracker</b> to stay connected.</li>"
                 "<li>Avoid displaying expensive items or large amounts of cash.</li>"
                 "<li>Use a VPN on public Wi-Fi — airports, cafes, hotels.</li>"
                 "<li>Research local scams at your destination before arriving.</li>"
-                "<li>Trust your gut — if something feels wrong, leave.</li></ul>")
+                "<li>Trust your gut — if something feels wrong, leave.</li>"
+                "<li><b>For international travel</b>, keep passport + visa copies on cloud storage.</li></ul>")
 
     # ─── INTENT: Packing / Luggage ───
     if any(w in m for w in ["pack", "packing", "luggage", "bag", "carry", "essentials", "what to bring"]):
-        return ("🧳 <b>Smart Packing List:</b><br>"
-                "<ul><li>📄 ID proof + passport + visa (digital + physical copy)</li>"
+        return ("🧳 <b>Smart Packing List for India Travel:</b><br>"
+                "<ul><li>📄 <b>Aadhaar Card / Voter ID / PAN Card</b> — mandatory for hotel check-in & train travel in India</li>"
                 "<li>💊 Personal medications + basic first aid kit</li>"
-                "<li>🔌 Universal power adapter</li>"
-                "<li>💦 Reusable water bottle</li>"
-                "<li>🧴 Sunscreen + insect repellent</li>"
+                "<li>🔌 Universal power adapter (Type D/M plugs used in India)</li>"
+                "<li>💦 Reusable water bottle + water purification tablets</li>"
+                "<li>🧴 Sunscreen + insect repellent (especially for coastal/forested areas)</li>"
                 "<li>📱 Power bank (min. 10,000 mAh)</li>"
-                "<li>🧥 Light jacket/layer (even for hot destinations)</li>"
-                "<li>💳 Multiple payment methods (cash + 2 cards)</li></ul>")
+                "<li>🧥 Light jacket/layer (even for hot destinations — AC trains are cold!)</li>"
+                "<li>💳 Multiple payment methods (cash + UPI apps like GPay/PhonePe)</li>"
+                "<li>✈️ <i>Travelling internationally? Also carry passport + visa copies.</i></li></ul>")
 
-    # ─── INTENT: Visa / Documentation ───
-    if any(w in m for w in ["visa", "passport", "document", "id proof", "permit"]):
-        return ("📋 <b>Travel Document Checklist:</b><br>"
-                "<ul><li>Valid passport (6+ months validity required for most countries).</li>"
-                "<li>Check visa requirements at your destination's embassy website.</li>"
-                "<li>India offers <b>e-Visa</b> for 150+ countries at <b>indianvisaonline.gov.in</b></li>"
-                "<li>Carry 4 passport-size photos for emergency use.</li>"
-                "<li>Keep scanned copies on email/cloud: passport, visa, tickets, insurance.</li></ul>")
+    # ─── INTENT: ID / Documentation (Domestic India vs International) ───
+    if any(w in m for w in ["visa", "passport", "document", "id proof", "permit", "id card", "aadhaar"]):
+        # Check if the user is asking about international travel (visa) or domestic India travel
+        is_international = any(w in m for w in ["visa", "abroad", "international", "foreign", "outside india",
+                                                 "overseas", "uk", "usa", "europe", "passport", "embassy"])
+        if is_international:
+            return ("📋 <b>International Travel Document Checklist:</b><br>"
+                    "<ul><li>✅ Valid passport (6+ months validity required for most countries).</li>"
+                    "<li>✅ Check visa requirements at your destination's official embassy website.</li>"
+                    "<li>✅ India offers <b>e-Visa</b> for 150+ countries at <b>indianvisaonline.gov.in</b></li>"
+                    "<li>✅ Carry 4 passport-size photos for emergency use.</li>"
+                    "<li>✅ Keep scanned copies on email/cloud: passport, visa, tickets, travel insurance.</li>"
+                    "<li>✅ Buy <b>travel insurance</b> — mandatory for Schengen, UK, USA visas.</li></ul>")
+        else:
+            return ("📋 <b>Documents for Domestic India Travel:</b><br>"
+                    "<ul><li>🪪 <b>No visa or passport needed</b> — you're travelling within India!</li>"
+                    "<li>✅ Carry <b>Aadhaar Card</b> — accepted at all hotels, trains, flights.</li>"
+                    "<li>✅ <b>Voter ID / Driving License / PAN Card</b> also accepted as valid ID.</li>"
+                    "<li>✅ For flights: any government photo ID is sufficient.</li>"
+                    "<li>✅ For trains: Aadhaar or any photo ID verified against your PNR.</li>"
+                    "<li>✅ Keep digital copies of your ID on DigiLocker (India's official app).</li>"
+                    "<li>ℹ️ <i>Planning to go outside India? Ask me about 'international travel documents'.</i></li></ul>")
 
     # ─── INTENT: Weather ───
     if any(w in m for w in ["weather", "rain", "monsoon", "summer", "winter", "temperature",
@@ -1600,7 +1616,7 @@ def _process_chatbot(message):
                 "<li>🌤️ <b>Weather & seasons</b></li>"
                 "<li>🍛 <b>Food recommendations</b></li>"
                 "<li>🏨 <b>Accommodation tips</b></li>"
-                "<li>📋 <b>Visa & documents</b></li>"
+                "<li>🫢 <b>ID & documents</b> — Aadhaar for India travel, passport for international</li>"
                 "<li>🧳 <b>Packing lists</b></li>"
                 "<li>🌐 <b>Info on any destination</b> — 'tell me about Goa'</li></ul>"
                 "Just ask me anything travel-related!")

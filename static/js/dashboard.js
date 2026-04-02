@@ -1356,12 +1356,13 @@ Total Estimated Budget: ₹${estimatedBudget}
       // NEW: More tips, categorized
       const tipCategories = {
           "Safety & Security": [
-              "Always keep copies of your important documents (passport, ID, visa).",
+              "Carry your Aadhaar Card / Voter ID — required for hotel check-ins and train travel in India.",
               "Share your itinerary with family or friends back home.",
               "Avoid walking alone at night in poorly lit or unfamiliar areas.",
-              "Use a money belt or secure pouch for your cash, cards, and passport.",
+              "Use a money belt or secure pouch for your cash, cards, and phone.",
               "Be wary of public Wi-Fi. Use a VPN for sensitive transactions.",
-              "Research common scams in your destination."
+              "Research common scams in your destination before arriving.",
+              "Travelling internationally? Keep passport + visa copies on cloud storage."
           ],
           "Packing Essentials": [
               "Pack a basic first-aid kit (band-aids, pain relievers, antiseptic wipes).",

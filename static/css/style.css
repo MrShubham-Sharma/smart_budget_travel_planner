@@ -1521,7 +1521,28 @@ button:hover {
     to { opacity: 0; transform: translateY(20px); }
 }
 
-/* 6. Mobile & UI Breakpoints Hardening */
+/* 6. Mobile & UI Breakpoints — Full Responsive Overhaul */
+
+/* ── Tablet (≤ 900px) ── */
+@media (max-width: 900px) {
+    .dashboard-layout {
+        grid-template-columns: 1fr !important;
+    }
+
+    .modal-content.wide {
+        width: 95%;
+    }
+
+    .my-trips-layout {
+        flex-direction: column;
+    }
+
+    .my-trips-list-container, .my-trips-details {
+        width: 100%;
+    }
+}
+
+/* ── Mobile (≤ 768px) ── */
 @media (max-width: 768px) {
     /* Auth Form Mobile Fixes */
     .auth-container {
@@ -1529,54 +1550,160 @@ button:hover {
         width: 100%;
         min-height: auto;
     }
-    
-    .left-panel {
-        padding: 30px;
-    }
-    
-    .right-panel {
-        padding: 30px 20px;
+
+    .left-panel { padding: 25px 20px; }
+    .right-panel { padding: 25px 20px; }
+
+    /* ── Dashboard Navbar ── */
+    .dashboard .top-nav {
+        flex-direction: column;
+        padding: 0.9rem 1rem;
+        gap: 0.75rem;
+        text-align: center;
     }
 
-    /* Dashboard Mobile Fixes */
-    .top-nav {
-        flex-direction: column;
-        padding: 1rem;
-        gap: 1rem;
+    .nav-logo { justify-content: center; }
+
+    .top-nav h1 {
+        font-size: 18px;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 260px;
     }
-    
+
     .top-nav ul {
-        gap: 1.5rem;
+        gap: 0.5rem;
         flex-wrap: wrap;
         justify-content: center;
+        padding: 0;
     }
 
+    .top-nav ul li a {
+        padding: 7px 12px;
+        font-size: 0.85rem;
+    }
+
+    /* ── Welcome Heading ── */
     .dashboard-content h2 {
-        font-size: 2rem;
+        font-size: 1.6rem;
+        margin: 1.5rem auto 0.5rem;
+        white-space: normal;         /* Allow wrap on tiny screens */
+        text-align: center;
+    }
+
+    .dashboard-content > p {
+        font-size: 1rem;
+        margin-bottom: 1.5rem;
+        padding: 0 1rem;
+    }
+
+    /* ── Cards ── */
+    .cards-layout {
+        gap: 1rem;
+        padding: 0 0.75rem;
+        margin-bottom: 2rem;
     }
 
     .glass-card {
-        min-width: 100%; /* Force stacking on phones */
+        min-width: calc(50% - 0.5rem);   /* 2 columns on tablet-phone */
+        max-width: 100%;
+        padding: 1.5rem 1rem;
+    }
+
+    .glass-icon { font-size: 2rem; margin-bottom: 1rem; }
+    .glass-card h3 { font-size: 1.05rem; }
+    .glass-card p  { font-size: 0.82rem; }
+
+    /* ── Modals ── */
+    .modal {
+        padding: 10px;
+        align-items: flex-end;    /* Slide up from bottom on mobile */
     }
 
     .modal-content {
-        width: 95%; /* Prevent modal clipping off screen */
-        max-height: 85vh; /* Keep scroll button visible */
+        width: 100%;
+        max-width: 100%;
+        max-height: 90vh;
         overflow-y: auto;
+        border-radius: 20px 20px 0 0; /* bottom sheet style */
+        padding: 25px 18px;
     }
-    
+
+    .modal-content.wide { width: 100%; }
+
+    /* ── Maps ── */
+    #map, #myTripsMap { height: 220px; }
+
+    /* ── Trip list layout ── */
+    .my-trips-layout { flex-direction: column; }
+
+    /* ── Form rows ── */
+    .form-row {
+        flex-direction: column;
+        gap: 0;
+    }
+
+    /* ── Budget calculator radio groups ── */
+    .radio-group {
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    /* ── Chatbot ── */
+    .chat-window {
+        max-height: 45vh;
+    }
+
+    /* ── Toasts ── */
     #toast-container {
-        right: 15px;
-        bottom: 15px;
-        left: 15px; /* Center toasts on mobile */
-        align-items: center;
+        right: 10px;
+        bottom: 10px;
+        left: 10px;
+        align-items: stretch;
     }
-    
+
     .custom-toast {
         width: 100%;
-        text-align: center;
+        text-align: left;
+        font-size: 0.9rem;
+        padding: 14px 18px;
+    }
+
+    /* ── Floating chatbot button ── */
+    #chatbot-float-btn {
+        width: 50px;
+        height: 50px;
+        font-size: 1.2rem;
+        bottom: 18px;
+        right: 18px;
+    }
+
+    /* ── Recalculate route button ── */
+    .btn-recalculate {
+        width: 100%;
+        margin-top: 10px;
     }
 }
+
+/* ── Small phones (≤ 480px) ── */
+@media (max-width: 480px) {
+    .glass-card {
+        min-width: 100%;  /* 1 column on very small phones */
+    }
+
+    .top-nav h1 { font-size: 15px; max-width: 200px; }
+
+    .dashboard-content h2 { font-size: 1.3rem; }
+
+    .modal-content { padding: 20px 14px; }
+
+    #map, #myTripsMap { height: 180px; }
+
+    .metric-card .value { font-size: 1.8rem; }
+}
+
 
 /* --- Chatbot Quick-Action Chips --- */
 .chip {

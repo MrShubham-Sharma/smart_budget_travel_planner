@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Platform Analytics | Admin Command Center</title>
+    <title>Admin Panel | Smart Budget Travel Planner</title>
     <!-- Premium Font -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -19,32 +19,42 @@
             --text-muted: #9ca3af;
         }
 
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
         body {
-            margin: 0;
-            padding: 2rem;
             font-family: 'Plus Jakarta Sans', sans-serif;
             background-color: var(--bg);
             color: var(--text);
             min-height: 100vh;
+            padding: 1.5rem;
         }
 
+        /* ── Header ── */
         .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
             margin-bottom: 2rem;
             padding-bottom: 1rem;
             border-bottom: 1px solid var(--border);
         }
 
-        h1 {
-            margin: 0;
-            font-size: 1.8rem;
+        .header-left h1 {
+            font-size: clamp(1.1rem, 4vw, 1.8rem);
             font-weight: 800;
             background: linear-gradient(135deg, #fff, #9ca3af);
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
+            line-height: 1.2;
+        }
+
+        .header-left p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 4px;
         }
 
         .btn {
@@ -55,68 +65,79 @@
             border-radius: 8px;
             text-decoration: none;
             font-weight: 600;
+            font-size: 0.9rem;
             transition: all 0.2s;
+            white-space: nowrap;
         }
         .btn:hover { background: var(--surface-hover); }
 
+        /* ── Metrics Grid ── */
         .metrics-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
         }
 
         .metric-card {
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 12px;
-            padding: 1.5rem;
+            padding: 1.25rem;
             text-align: left;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
         }
 
         .metric-card h3 {
-            margin: 0 0 0.5rem 0;
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
         }
 
         .metric-card .value {
-            font-size: 2.5rem;
+            font-size: clamp(1.8rem, 5vw, 2.5rem);
             font-weight: 700;
-            margin: 0;
             color: var(--primary);
         }
         .metric-card .value.success { color: var(--success); }
 
+        /* ── Dashboard Layout ── */
         .dashboard-layout {
             display: grid;
             grid-template-columns: 2fr 1.5fr;
-            gap: 1.5rem;
+            gap: 1.25rem;
         }
 
         .panel {
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 12px;
-            padding: 1.5rem;
+            padding: 1.25rem;
         }
 
         .panel h2 {
-            margin: 0 0 1rem 0;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            color: var(--text);
+        }
+
+        /* ── Log Table ── */
+        .table-wrapper {
+            overflow-x: auto;       /* Horizontal scroll on mobile */
+            -webkit-overflow-scrolling: touch;
         }
 
         .log-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
+            min-width: 400px;       /* Prevent squash below 400px */
         }
-        
+
         .log-table th, .log-table td {
-            padding: 0.75rem;
+            padding: 0.65rem 0.75rem;
             text-align: left;
             border-bottom: 1px solid var(--border);
         }
@@ -125,21 +146,56 @@
         .log-table tr:hover { background: var(--surface-hover); }
 
         .badge {
-            padding: 4px 8px;
+            display: inline-block;
+            padding: 3px 8px;
             border-radius: 4px;
-            font-size: 0.75rem;
+            font-size: 0.72rem;
             font-weight: 700;
-            background: rgba(99, 102, 241, 0.1);
+            background: rgba(99, 102, 241, 0.15);
             color: var(--primary);
+            white-space: nowrap;
         }
 
+        /* ── Tablet (≤ 900px) ── */
+        @media (max-width: 900px) {
+            .dashboard-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ── Mobile (≤ 600px) ── */
+        @media (max-width: 600px) {
+            body { padding: 1rem; }
+
+            .metrics-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.75rem;
+            }
+
+            .metric-card { padding: 1rem; }
+
+            .panel { padding: 1rem; }
+
+            .panel-logs {
+                max-height: 320px;
+                overflow-y: auto;
+            }
+        }
+
+        /* ── Very small (≤ 380px) ── */
+        @media (max-width: 380px) {
+            .metrics-grid { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <h1>Admin Analytics & Telemetry</h1>
-        <a href="/logout" class="btn">Logout System</a>
+        <div class="header-left">
+            <h1>⚙️ Admin Analytics &amp; Telemetry</h1>
+            <p>Smart Budget Travel Planner — Command Center</p>
+        </div>
+        <a href="/logout" class="btn">🚪 Logout</a>
     </div>
 
     <div class="metrics-grid">
@@ -160,25 +216,27 @@
     <div class="dashboard-layout">
         <!-- Chart Section -->
         <div class="panel">
-            <h2>Real-Time Traffic Overview</h2>
+            <h2>📈 Real-Time Traffic Overview</h2>
             <canvas id="trafficChart" height="200"></canvas>
         </div>
 
         <!-- Logs Section -->
-        <div class="panel" style="max-height: 400px; overflow-y: auto;">
-            <h2>Recent Activity Feed</h2>
-            <table class="log-table">
-                <thead>
-                    <tr>
-                        <th>Action</th>
-                        <th>User IP / Email</th>
-                        <th>Endpoint</th>
-                    </tr>
-                </thead>
-                <tbody id="logs-body">
-                    <!-- JS population -->
-                </tbody>
-            </table>
+        <div class="panel panel-logs" style="max-height: 420px; overflow-y: auto;">
+            <h2>📋 Recent Activity Feed</h2>
+            <div class="table-wrapper">
+                <table class="log-table">
+                    <thead>
+                        <tr>
+                            <th>Action</th>
+                            <th>User / IP</th>
+                            <th>Endpoint</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logs-body">
+                        <!-- JS population -->
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -187,10 +245,10 @@
             try {
                 const res = await fetch('/api/admin-stats');
                 const data = await res.json();
-                
-                // Populate Metics
-                document.getElementById('val-users').innerText = data.total_users;
-                document.getElementById('val-trips').innerText = data.total_trips;
+
+                // Populate Metrics
+                document.getElementById('val-users').innerText   = data.total_users;
+                document.getElementById('val-trips').innerText   = data.total_trips;
                 document.getElementById('val-traffic').innerText = data.today_traffic;
 
                 // Populate Logs
@@ -199,29 +257,27 @@
                 data.recent_logs.forEach(log => {
                     // log = [id, name, email, ip, endpoint, action, time]
                     const tr = document.createElement('tr');
-                    
                     let userStr = log[2] ? `<div>${log[2]}</div>` : '';
-                    userStr += `<div style="font-size:0.75rem; color:#9ca3af">${log[3]}</div>`;
-
+                    userStr += `<div style="font-size:0.72rem;color:#9ca3af">${log[3]}</div>`;
                     tr.innerHTML = `
                         <td><span class="badge">${log[5]}</span></td>
                         <td>${userStr}</td>
-                        <td style="color:#9ca3af">${log[4]}</td>
+                        <td style="color:#9ca3af;font-size:0.8rem;">${log[4]}</td>
                     `;
                     tbody.appendChild(tr);
                 });
 
-                // Generate Chart (Simulated distribution over 7 days for visual flair, tied to today_traffic)
+                // Traffic Chart
                 const ctx = document.getElementById('trafficChart').getContext('2d');
                 new Chart(ctx, {
                     type: 'line',
                     data: {
-                        labels: ['6 Days Ago', '5 Days Ago', '4 Days Ago', '3 Days Ago', '2 Days Ago', 'Yesterday', 'Today'],
+                        labels: ['6d ago','5d ago','4d ago','3d ago','2d ago','Yesterday','Today'],
                         datasets: [{
                             label: 'Platform Requests',
                             data: [12, 19, 15, 25, 22, 30, data.today_traffic],
                             borderColor: '#6366f1',
-                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                            backgroundColor: 'rgba(99,102,241,0.1)',
                             borderWidth: 2,
                             fill: true,
                             tension: 0.4
@@ -231,13 +287,13 @@
                         responsive: true,
                         plugins: { legend: { display: false } },
                         scales: {
-                            y: { grid: { color: '#333' }, ticks: { color: '#9ca3af' } },
+                            y: { grid: { color: '#333' }, ticks: { color: '#9ca3af', maxTicksLimit: 5 } },
                             x: { grid: { color: '#333' }, ticks: { color: '#9ca3af' } }
                         }
                     }
                 });
 
-            } catch(e) { console.error("Admin Fetch Error", e); }
+            } catch(e) { console.error('Admin Fetch Error', e); }
         }
 
         window.onload = fetchAdminData;

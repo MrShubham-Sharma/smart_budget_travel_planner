@@ -120,7 +120,6 @@ def get_user_by_email(email):
         
     conn.close()
     return user
-    return user
 
 # ------------------
 # 2. TRIP FUNCTIONS
