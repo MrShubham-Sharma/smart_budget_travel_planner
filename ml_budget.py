@@ -2,10 +2,8 @@ import json
 
 # All stay types the model knows about (must match train_models.py)
 VALID_STAY_TYPES = [
-    'hostel', 'camping', 'dharamshala', 'ashram', 'guesthouse',
-    'budget_hotel', 'homestay', 'heritage_hotel', '3star_hotel',
-    'resort', '5star_hotel', 'houseboat', 'treehouse',
-    'desert_camp', 'tent_resort',
+    'hostel', 'friend_house', 'budget_hotel', '3star_hotel',
+    'resort', '5star_hotel', 'camping'
 ]
 
 # All food types (must match train_models.py FOOD_DAILY_COST)
@@ -15,14 +13,10 @@ VALID_FOOD_TYPES = [
 ]
 
 STAY_NIGHTLY_BASE = {
-    'hostel':        500,    'camping':       700,
-    'dharamshala':   300,    'ashram':        250,
-    'guesthouse':    1100,   'budget_hotel':  1400,
-    'homestay':      1600,   'heritage_hotel':3000,
+    'hostel':        400,    'camping':       600,
+    'friend_house':  0,      'budget_hotel':  1200,
     '3star_hotel':   2800,   'resort':        5500,
-    '5star_hotel':   11000,  'houseboat':     7000,
-    'treehouse':     4500,   'desert_camp':   4000,
-    'tent_resort':   3500,
+    '5star_hotel':   11000
 }
 
 FOOD_DAILY_COST = {
@@ -98,7 +92,8 @@ class HypercubeBudgetEngine:
             _aliases = {
                 'budget': 'budget_hotel', 'mid': '3star_hotel',
                 'luxury': '5star_hotel', 'hotel': 'budget_hotel',
-                'camp': 'camping',
+                'camp': 'camping', 'guesthouse': 'budget_hotel',
+                'homestay': 'budget_hotel', 'friend': 'friend_house'
             }
             st = _aliases.get(st, 'budget_hotel')
 

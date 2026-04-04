@@ -78,10 +78,8 @@ def train_budget_ml_model():
 
     # Base Constants 
     STAY_NIGHTLY_BASE = {
-        'hostel': 500, 'camping': 700, 'dharamshala': 300, 'ashram': 250,
-        'guesthouse': 1100, 'budget_hotel': 1400, 'homestay': 1600, 'heritage_hotel': 3000,
-        '3star_hotel': 2800, 'resort': 5500, '5star_hotel': 11000, 'houseboat': 7000,
-        'treehouse': 4500, 'desert_camp': 4000, 'tent_resort': 3500
+        'hostel': 400, 'camping': 600, 'friend_house': 0,
+        'budget_hotel': 1200, '3star_hotel': 2800, 'resort': 5500, '5star_hotel': 11000,
     }
     FOOD_DAILY_COST = {
         'veg_thali': 300, 'nonveg_thali': 450, 'local_cuisine': 600, 
