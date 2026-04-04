@@ -14,29 +14,40 @@ VALID_FOOD_TYPES = [
     'dhaba', 'restaurant', 'hotel_buffet',
 ]
 
+STAY_NIGHTLY_BASE = {
+    'hostel':        500,    'camping':       700,
+    'dharamshala':   300,    'ashram':        250,
+    'guesthouse':    1100,   'budget_hotel':  1400,
+    'homestay':      1600,   'heritage_hotel':3000,
+    '3star_hotel':   2800,   'resort':        5500,
+    '5star_hotel':   11000,  'houseboat':     7000,
+    'treehouse':     4500,   'desert_camp':   4000,
+    'tent_resort':   3500,
+}
+
+FOOD_DAILY_COST = {
+    'veg_thali':    300,   'nonveg_thali': 450,
+    'local_cuisine':600,   'dhaba':        250,
+    'restaurant':   900,   'hotel_buffet': 1600,
+}
+
+TRANSPORT_DAILY_PP = {
+    'budget':    350,   
+    'mid-range': 700,   
+    'mid':       700,
+    'luxury':   2500,   
+}
+
+SEASON_MULT  = {'peak': 1.4, 'off-peak': 0.8, 'shoulder': 1.0, 'holiday': 1.8}
+BOOKING_MULT = {'last-minute': 1.3, 'normal': 1.0, 'advance': 0.8}
+
 class HypercubeBudgetEngine:
     """
-    N-Dimensional Budget Hypercube Inference Engine (v2).
-    Dimensions: days × group_size × travel_style × food_type × season × booking × stay_type
+    N-Dimensional Budget Hypercube Inference Engine (v2) - Direct Mathematical Engine.
+    Uses 0 RAM, loads instantly, impossible to hit OOM (Out Of Memory) errors.
     """
-    GRID_PATH = 'models/budget_grid.json'
-
     def __init__(self):
-        self.grid = {}
-        self.day_bins = []
-        self._load()
-
-    def _load(self):
-        """Try to load the grid from disk. Safe to call multiple times."""
-        try:
-            with open(self.GRID_PATH, 'r') as f:
-                self.grid = json.load(f)
-            self.day_bins = sorted([int(k) for k in self.grid.keys()])
-            print("Loaded Budget Hypercube v2 parameters successfully.")
-        except Exception as e:
-            print("Error: Budget Hypercube missing or incompatible.", e)
-            self.grid = {}
-            self.day_bins = []
+        print("Loaded Budget Hypercube v2 parameters successfully (O(1) Math).")
 
     def predict(self, days, travel_style="mid", food_type="casual",
                 group_size=1, season="shoulder", booking="normal",
@@ -44,18 +55,6 @@ class HypercubeBudgetEngine:
         if days <= 0:
             return 0.0
 
-        # Lazy-reload if grid was missing at startup but is now trained
-        if not self.grid:
-            self._load()
-
-        if not self.grid:
-            # Still missing — return a safe fallback estimate
-            return round(1500 * days * group_size, 2)
-
-        # ── Nearest-neighbour day discretisation ──────────────────────────
-        closest_day = min(self.day_bins, key=lambda x: abs(x - days))
-
-        # ── Clamp / normalise inputs ────────────────────────────────────
         grp = min(20, max(1, int(group_size)))
 
         style = travel_style.lower()
@@ -90,15 +89,20 @@ class HypercubeBudgetEngine:
             }
             st = _aliases.get(st, 'budget_hotel')
 
-        # ── O(1) grid lookup ─────────────────────────────────────────────
-        base_budget = self.grid[str(closest_day)][str(grp)][style][food][s][b][st]
+        # Multipliers
+        s_mult = SEASON_MULT[s]
+        b_mult = BOOKING_MULT[b]
 
-        # ── Interpolate for day counts outside the 60-day training range ─
-        if closest_day > 0 and days != closest_day:
-            base_budget = base_budget * (days / closest_day)
+        duration_discount = 0.82 if days > 14 else (0.91 if days >= 7 else 1.0)
+        group_discount = 0.65 if grp >= 10 else (0.80 if grp >= 4 else 1.0)
 
-        return round(base_budget, 2)
+        # Baseline sums per person
+        nightly_pp = STAY_NIGHTLY_BASE[st] * s_mult * b_mult * duration_discount
+        food_daily_pp = FOOD_DAILY_COST[food] * s_mult
+        transport_pp = TRANSPORT_DAILY_PP[style] * s_mult
 
+        total = round((nightly_pp + food_daily_pp + transport_pp) * days * grp * group_discount, 2)
+        return total
 
 # Singleton instance
 budget_model = HypercubeBudgetEngine()

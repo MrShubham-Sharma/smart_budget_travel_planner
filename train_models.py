@@ -198,5 +198,5 @@ def generate_budget_grid():
 
 if __name__ == "__main__":
     generate_eta_grid()
-    generate_budget_grid()
+    # generate_budget_grid() # Disabled: Engine is now mathematically purely O(1)
     print("ALL ML HYPERCUBES FULLY SYNTHESIZED")

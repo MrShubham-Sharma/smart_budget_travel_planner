@@ -1,16 +1,3 @@
-/**
- * Enhanced Dashboard Script
- *
- * NOW INCLUDES:
- * - Live Route Tracker with ETA (FIXED: Stable, non-recalculating version)
- * - Nearby-on-Route attractions (FIXED: Finds famous places)
- * - Smart Budget Estimator (Solo/Group, Style)
- * - Upgraded Budget Tracker UI
- * - Chatbot integration
- * - NEW UI Animations
- * - Auto-select most recent trip for Live Tracker and Budget Tracker
- */
-
 // ---------------------------------
 // 1. APPLICATION NAMESPACE
 // ---------------------------------
@@ -71,13 +58,13 @@ const App = {
     document.querySelectorAll('.card.option-card').forEach(card => {
       card.addEventListener('click', this.handleCardClick.bind(this));
     });
-    
+
     // Nav link clicks
     document.querySelectorAll('.top-nav a[data-action]').forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            this.handleCardClick(e);
-        });
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.handleCardClick(e);
+      });
     });
 
     // Modal closing (overlay clicks) — tripPlannerModal deliberately excluded
@@ -88,41 +75,43 @@ const App = {
       if (event.target === this.Elements.chatbotModal) this.Chatbot.close();
     });
 
-    // Suggestion input debouncing
+    // Suggestion input debouncing & Keyboard Navigation
     if (this.Elements.start_location) {
       this.Elements.start_location.addEventListener("input", () => {
         clearTimeout(this.State.startTimeout);
         this.State.startTimeout = setTimeout(() => this.Map.fetchSuggestions('start'), 300);
       });
+      this.Elements.start_location.addEventListener("keydown", (e) => this.Map.handleSuggestionsKeydown(e, 'start'));
     }
     if (this.Elements.destination) {
       this.Elements.destination.addEventListener("input", () => {
         clearTimeout(this.State.destTimeout);
         this.State.destTimeout = setTimeout(() => this.Map.fetchSuggestions('dest'), 300);
       });
+      this.Elements.destination.addEventListener("keydown", (e) => this.Map.handleSuggestionsKeydown(e, 'dest'));
     }
-    
+
     // "My Trips" list event delegation
     if (this.Elements.myTripsList) {
-        this.Elements.myTripsList.addEventListener('click', this.Trip.handleMyTripsClick.bind(this.Trip));
+      this.Elements.myTripsList.addEventListener('click', this.Trip.handleMyTripsClick.bind(this.Trip));
     }
-    
+
     // Budget Calculator radio buttons
     document.querySelectorAll('input[name="traveler_type"]').forEach(radio => {
-        radio.addEventListener('change', (e) => {
-            if (this.Elements.group_size_wrapper) {
-                this.Elements.group_size_wrapper.style.display = (e.target.value === 'group') ? 'block' : 'none';
-            }
-        });
+      radio.addEventListener('change', (e) => {
+        if (this.Elements.group_size_wrapper) {
+          this.Elements.group_size_wrapper.style.display = (e.target.value === 'group') ? 'block' : 'none';
+        }
+      });
     });
   },
 
   // NEW: Load trips for auto-selection
-  loadTripsForAutoSelect: async function() {
+  loadTripsForAutoSelect: async function () {
     try {
       const response = await fetch("/get-trips");
       const data = await response.json();
-      
+
       if (data.status === "success" && data.trips && data.trips.length > 0) {
         this.State.allTrips = data.trips;
         // Auto-select the most recent trip (last in list or by highest ID)
@@ -140,14 +129,14 @@ const App = {
   // ---------------------------------
   handleCardClick: function (e) {
     const target = e.currentTarget;
-    
-    if(target.classList.contains('card')) {
-        target.classList.add('card-active');
-        setTimeout(() => target.classList.remove('card-active'), 400);
+
+    if (target.classList.contains('card')) {
+      target.classList.add('card-active');
+      setTimeout(() => target.classList.remove('card-active'), 400);
     }
 
     const action = target.getAttribute('data-action') || this.getCardActionFromTitle(target);
-    
+
     switch (action) {
       case 'plan': this.Trip.openTripPlanner(); break;
       case 'budget': this.Budget.openBudgetPlanner(); break;
@@ -188,7 +177,7 @@ const App = {
 
           App.State.map.on('click', (e) => {
             if (!App.State.routeControl) {
-                this.setDestinationMarker(e.latlng.lat, e.latlng.lng);
+              this.setDestinationMarker(e.latlng.lat, e.latlng.lng);
             }
           });
         } else if (App.State.map) {
@@ -260,9 +249,9 @@ const App = {
         routeWhileDragging: false,
         show: false,
         draggableWaypoints: false
-      }).on('routesfound', function(e) {
-          // Store route info for budget planner
-          App.State.routeControl._routes = e.routes;
+      }).on('routesfound', function (e) {
+        // Store route info for budget planner
+        App.State.routeControl._routes = e.routes;
       }).addTo(App.State.map);
     },
 
@@ -273,7 +262,7 @@ const App = {
       const suggestionsEl = isStart ? App.Elements.start_suggestions : App.Elements.dest_suggestions;
 
       if (!query || query.length < 2 || !suggestionsEl) {
-        if(suggestionsEl) suggestionsEl.innerHTML = "";
+        if (suggestionsEl) suggestionsEl.innerHTML = "";
         return;
       }
 
@@ -304,6 +293,43 @@ const App = {
       } catch (err) {
         console.warn(`fetchSuggestions (${type}) error:`, err);
       }
+    },
+
+    handleSuggestionsKeydown: function (e, type) {
+      const isStart = (type === 'start');
+      const suggestionsEl = isStart ? App.Elements.start_suggestions : App.Elements.dest_suggestions;
+      if (!suggestionsEl) return;
+
+      const items = suggestionsEl.querySelectorAll('li');
+      if (items.length === 0) return;
+
+      let currentIndex = -1;
+      items.forEach((item, index) => {
+        if (item.classList.contains('highlighted')) {
+          currentIndex = index;
+        }
+      });
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (currentIndex < items.length - 1) {
+          if (currentIndex >= 0) items[currentIndex].classList.remove('highlighted');
+          items[currentIndex + 1].classList.add('highlighted');
+          items[currentIndex + 1].scrollIntoView({ block: 'nearest' });
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (currentIndex > 0) {
+          items[currentIndex].classList.remove('highlighted');
+          items[currentIndex - 1].classList.add('highlighted');
+          items[currentIndex - 1].scrollIntoView({ block: 'nearest' });
+        }
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (currentIndex >= 0 && currentIndex < items.length) {
+          items[currentIndex].click();
+        }
+      }
     }
   },
 
@@ -313,19 +339,19 @@ const App = {
   Trip: {
     openTripPlanner: function (isLiveTracking = false) {
       if (!App.Elements.tripPlannerModal) return;
-      
+
       // Show/hide UI elements based on mode
       if (App.Elements['route-summary']) {
-          App.Elements['route-summary'].style.display = isLiveTracking ? 'block' : 'none';
+        App.Elements['route-summary'].style.display = isLiveTracking ? 'block' : 'none';
       }
       if (App.Elements['recalculate-route-btn']) {
-          App.Elements['recalculate-route-btn'].style.display = isLiveTracking ? 'block' : 'none';
+        App.Elements['recalculate-route-btn'].style.display = isLiveTracking ? 'block' : 'none';
       }
-      
+
       if (App.Elements['trip-planner-fields']) {
-          App.Elements['trip-planner-fields'].style.display = isLiveTracking ? 'none' : 'block';
+        App.Elements['trip-planner-fields'].style.display = isLiveTracking ? 'none' : 'block';
       }
-      
+
       App.Elements.tripPlannerModal.classList.add('show');
       App.Map.initMainMap();
       setTimeout(() => { if (App.State.map) App.State.map.invalidateSize(); }, 300);
@@ -419,18 +445,18 @@ const App = {
       try {
         const response = await fetch("/get-trips");
         const data = await response.json();
-        
+
         App.Elements.myTripsList.innerHTML = "";
         this.clearMapMarkers();
 
         if (data.status !== "success" || !data.trips || data.trips.length === 0) {
-           App.Elements.myTripsList.innerHTML = "<li>No trips found. Create a trip first!</li>";
-           return;
+          App.Elements.myTripsList.innerHTML = "<li>No trips found. Create a trip first!</li>";
+          return;
         }
-        
+
         // Store trips for auto-selection
         App.State.allTrips = data.trips;
-        
+
         const fragment = document.createDocumentFragment();
         data.trips.forEach(trip => {
           const li = document.createElement("li");
@@ -456,38 +482,38 @@ const App = {
         App.Elements.myTripsList.innerHTML = "<li>Error loading trips.</li>";
       }
     },
-    
+
     handleMyTripsClick: async function (e) {
-        const target = e.target.closest('[data-action]');
-        if (!target) return;
-        
-        const action = target.dataset.action;
-        const tripId = target.dataset.tripId;
-        const li = target.closest('li[data-trip]');
-        const tripData = li ? JSON.parse(li.dataset.trip) : null;
-        
-        if (!tripData) return;
-        
-        switch (action) {
-            case 'view-trip':
-                this.showTripOnMap(tripData);
-                break;
-            case 'track-trip':
-                App.State.activeTripForTracking = tripData;
-                this.closeMyTripsModal();
-                App.Track.startLiveTracking();
-                break;
-            case 'open-budget':
-                this.closeMyTripsModal();
-                App.Budget.openBudgetTracker(tripId);
-                break;
-            case 'edit-trip':
-                this.openEditPanel(tripData);
-                break;
-            case 'delete-trip':
-                await this.deleteTrip(tripId);
-                break;
-        }
+      const target = e.target.closest('[data-action]');
+      if (!target) return;
+
+      const action = target.dataset.action;
+      const tripId = target.dataset.tripId;
+      const li = target.closest('li[data-trip]');
+      const tripData = li ? JSON.parse(li.dataset.trip) : null;
+
+      if (!tripData) return;
+
+      switch (action) {
+        case 'view-trip':
+          this.showTripOnMap(tripData);
+          break;
+        case 'track-trip':
+          App.State.activeTripForTracking = tripData;
+          this.closeMyTripsModal();
+          App.Track.startLiveTracking();
+          break;
+        case 'open-budget':
+          this.closeMyTripsModal();
+          App.Budget.openBudgetTracker(tripId);
+          break;
+        case 'edit-trip':
+          this.openEditPanel(tripData);
+          break;
+        case 'delete-trip':
+          await this.deleteTrip(tripId);
+          break;
+      }
     },
 
     addMapMarker: function (trip) {
@@ -587,88 +613,93 @@ const App = {
     // Daily cost profiles (per person) — realistic Indian travel estimates
     // Includes: accommodation share + food + local transport + misc
     Profiles: {
-        solo:  { budget: 800,  mid: 2000, luxury: 6000 },
-        group: { budget: 600,  mid: 1500, luxury: 4500 }  // Per person (shared accommodation discount)
+      solo: { budget: 800, mid: 2000, luxury: 6000 },
+      group: { budget: 600, mid: 1500, luxury: 4500 }  // Per person (shared accommodation discount)
     },
-    
-    estimateBudget: async function() {
-        const destination  = App.Util.getVal('destination');
-        const start_date   = App.Util.getVal('start_date');
-        const end_date     = App.Util.getVal('end_date');
 
-        // ── 1. Destination is required ─────────────────────────────────────
-        if (!destination || destination.trim() === '') {
-            const destInput = document.getElementById('destination');
-            if (destInput) {
-                destInput.style.border = '2px solid #ef4444';
-                destInput.placeholder  = '⚠️ Please enter a destination first!';
-                destInput.focus();
-                setTimeout(() => {
-                    destInput.style.border = '';
-                    destInput.placeholder  = 'e.g., Goa, India';
-                }, 3000);
-            }
-            return;
+    estimateBudget: async function () {
+      const destination = App.Util.getVal('destination');
+      const start_date = App.Util.getVal('start_date');
+      const end_date = App.Util.getVal('end_date');
+
+      // ── 1. Destination is required and must be in India ─────────────────
+      if (!destination || destination.trim() === '') {
+        const destInput = document.getElementById('destination');
+        if (destInput) {
+          destInput.style.border = '2px solid #ef4444';
+          destInput.placeholder = '⚠️ Please enter a destination first!';
+          destInput.focus();
+          setTimeout(() => {
+            destInput.style.border = '';
+            destInput.placeholder = 'e.g., Goa, India';
+          }, 3000);
         }
+        return;
+      }
+      if (!destination.toLowerCase().includes('india')) {
+        alert("Sorry, our Machine Learning Budget Engine currently only supports travel within India.");
+        App.Util.setVal('budget', '');
+        return;
+      }
 
-        // ── 2. Dates are required ───────────────────────────────────────────
-        if (!start_date || !end_date) {
-            return alert('Please select Start and End dates first.');
-        }
-        const startDate = new Date(start_date);
-        const endDate   = new Date(end_date);
-        if (isNaN(startDate) || isNaN(endDate) || endDate < startDate) {
-            return alert('Please select valid Start and End dates.');
-        }
+      // ── 2. Dates are required ───────────────────────────────────────────
+      if (!start_date || !end_date) {
+        return alert('Please select Start and End dates first.');
+      }
+      const startDate = new Date(start_date);
+      const endDate = new Date(end_date);
+      if (isNaN(startDate) || isNaN(endDate) || endDate < startDate) {
+        return alert('Please select valid Start and End dates.');
+      }
 
-        // ── 3. Read all form values fresh every single call ─────────────────
-        const numDays      = Math.max(1, Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)));
-        const travelerType = document.querySelector('input[name="traveler_type"]:checked')?.value || 'solo';
-        const groupSize    = (travelerType === 'group') ? (parseInt(App.Util.getVal('group_size')) || 1) : 1;
-        const travelStyle  = document.querySelector('input[name="travel_style"]:checked')?.value  || 'mid';
-        const foodType     = document.querySelector('input[name="food_type"]:checked')?.value     || 'dhaba';
-        const stayType     = (document.querySelector('input[name="stay_type"]:checked')?.value)   || 'budget_hotel';
+      // ── 3. Read all form values fresh every single call ─────────────────
+      const numDays = Math.max(1, Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)));
+      const travelerType = document.querySelector('input[name="traveler_type"]:checked')?.value || 'solo';
+      const groupSize = (travelerType === 'group') ? (parseInt(App.Util.getVal('group_size')) || 1) : 1;
+      const travelStyle = document.querySelector('input[name="travel_style"]:checked')?.value || 'mid';
+      const foodType = document.querySelector('input[name="food_type"]:checked')?.value || 'dhaba';
+      const stayType = (document.querySelector('input[name="stay_type"]:checked')?.value) || 'budget_hotel';
 
-        // ── 4. Auto-detect season from travel month ─────────────────────────
-        const startMonth = startDate.getMonth() + 1;
-        let season = 'shoulder';
-        if ([12, 1, 6, 7].includes(startMonth))      season = 'peak';
-        else if ([2, 3, 8, 9].includes(startMonth))  season = 'off-peak';
+      // ── 4. Auto-detect season from travel month ─────────────────────────
+      const startMonth = startDate.getMonth() + 1;
+      let season = 'shoulder';
+      if ([12, 1, 6, 7].includes(startMonth)) season = 'peak';
+      else if ([2, 3, 8, 9].includes(startMonth)) season = 'off-peak';
 
-        // ── 5. Auto-detect booking window ──────────────────────────────────
-        const daysFromNow = Math.ceil((startDate - new Date()) / (1000 * 60 * 60 * 24));
-        let booking = 'normal';
-        if (daysFromNow <= 3)      booking = 'last-minute';
-        else if (daysFromNow >= 30) booking = 'advance';
+      // ── 5. Auto-detect booking window ──────────────────────────────────
+      const daysFromNow = Math.ceil((startDate - new Date()) / (1000 * 60 * 60 * 24));
+      let booking = 'normal';
+      if (daysFromNow <= 3) booking = 'last-minute';
+      else if (daysFromNow >= 30) booking = 'advance';
 
-        App.Util.setVal('budget', 'Calculating...');
+      App.Util.setVal('budget', 'Calculating...');
 
-        // ── 6. Call the ML API ──────────────────────────────────────────────
-        try {
-            const res = await fetch('/api/predict-budget', {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    days:         numDays,
-                    group_size:   groupSize,
-                    travel_style: travelStyle,
-                    food_type:    foodType,
-                    season:       season,
-                    booking:      booking,
-                    stay_type:    stayType
-                })
-            });
-            const data = await res.json();
-            if (data.status === 'success') {
-                const total = Math.ceil(data.estimated_budget);
-                const perPerson = Math.ceil(data.cost_per_person);
-                App.Util.setVal('budget', total);
+      // ── 6. Call the ML API ──────────────────────────────────────────────
+      try {
+        const res = await fetch('/api/predict-budget', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            days: numDays,
+            group_size: groupSize,
+            travel_style: travelStyle,
+            food_type: foodType,
+            season: season,
+            booking: booking,
+            stay_type: stayType
+          })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          const total = Math.ceil(data.estimated_budget);
+          const perPerson = Math.ceil(data.cost_per_person);
+          App.Util.setVal('budget', total);
 
-                const bookingLabel = {'last-minute':'Last Minute 🔥','normal':'Normal','advance':'Advance ✅'}[booking];
-                const foodLabel    = foodType.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
-                const stayLabel    = stayType.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
-                alert(
-`🧮 ML Budget Estimate
+          const bookingLabel = { 'last-minute': 'Last Minute 🔥', 'normal': 'Normal', 'advance': 'Advance ✅' }[booking];
+          const foodLabel = foodType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+          const stayLabel = stayType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+          alert(
+            `🧮 ML Budget Estimate
 
 👥 Travelers  : ${groupSize} person(s) — ${travelerType}
 🎒 Style      : ${travelStyle}  |  🍛 Food: ${foodLabel}
@@ -680,61 +711,61 @@ const App = {
 ━━━━━━━━━━━━━━━━━━━━━━━━
 ✈️ Total Budget : ₹${total.toLocaleString('en-IN')}
 (includes stay + food + local transport)`
-                );
-            } else {
-                App.Util.setVal('budget', '');
-                alert('Budget error: ' + (data.message || 'Unknown error'));
-            }
-        } catch (e) {
-            console.error('estimateBudget error:', e);
-            App.Util.setVal('budget', '');
-            alert('Failed to reach ML API. Is the server running?');
+          );
+        } else {
+          App.Util.setVal('budget', '');
+          alert('Budget error: ' + (data.message || 'Unknown error'));
         }
+      } catch (e) {
+        console.error('estimateBudget error:', e);
+        App.Util.setVal('budget', '');
+        alert('Failed to reach ML API. Is the server running?');
+      }
     },
 
     // ✅ Clear the trip form back to defaults
-    clearTripForm: function() {
-        ['trip_name', 'destination', 'start_location', 'budget', 'latitude', 'longitude', 'start_lat', 'start_lon']
-            .forEach(id => App.Util.setVal(id, ''));
-        const startDateEl = document.getElementById('start_date');
-        const endDateEl   = document.getElementById('end_date');
-        if (startDateEl) startDateEl.value = '';
-        if (endDateEl)   endDateEl.value   = '';
+    clearTripForm: function () {
+      ['trip_name', 'destination', 'start_location', 'budget', 'latitude', 'longitude', 'start_lat', 'start_lon']
+        .forEach(id => App.Util.setVal(id, ''));
+      const startDateEl = document.getElementById('start_date');
+      const endDateEl = document.getElementById('end_date');
+      if (startDateEl) startDateEl.value = '';
+      if (endDateEl) endDateEl.value = '';
 
-        // Reset radios to defaults
-        const defaultRadios = {
-            travel_style: 'budget',
-            food_type:    'dhaba',
-            stay_type:    'budget_hotel',
-            traveler_type:'solo'
-        };
-        Object.entries(defaultRadios).forEach(([name, val]) => {
-            const el = document.querySelector(`input[name="${name}"][value="${val}"]`);
-            if (el) el.checked = true;
-        });
+      // Reset radios to defaults
+      const defaultRadios = {
+        travel_style: 'budget',
+        food_type: 'dhaba',
+        stay_type: 'budget_hotel',
+        traveler_type: 'solo'
+      };
+      Object.entries(defaultRadios).forEach(([name, val]) => {
+        const el = document.querySelector(`input[name="${name}"][value="${val}"]`);
+        if (el) el.checked = true;
+      });
 
-        // Reset group size
-        const gsEl = document.getElementById('group_size');
-        if (gsEl) gsEl.value = '1';
-        gsEl?.style && (gsEl.style.display = 'none');
+      // Reset group size
+      const gsEl = document.getElementById('group_size');
+      if (gsEl) gsEl.value = '1';
+      gsEl?.style && (gsEl.style.display = 'none');
 
-        App.Util.setVal('budget', '');
-        const budgetEl = document.getElementById('budget');
-        if (budgetEl) budgetEl.placeholder = "Click 'Calculate' to estimate";
+      App.Util.setVal('budget', '');
+      const budgetEl = document.getElementById('budget');
+      if (budgetEl) budgetEl.placeholder = "Click 'Calculate' to estimate";
     },
 
-    openBudgetPlanner: function() {
+    openBudgetPlanner: function () {
       if (!App.State.allTrips || App.State.allTrips.length === 0) {
-          return App.Util.showModal(`<h3>No Trips Found</h3><p>Please plan a trip first before adding expenses.</p><div class="modal-buttons text-center"><button onclick="App.Util.closeModal()" class="btn-close">Close</button></div>`);
+        return App.Util.showModal(`<h3>No Trips Found</h3><p>Please plan a trip first before adding expenses.</p><div class="modal-buttons text-center"><button onclick="App.Util.closeModal()" class="btn-close">Close</button></div>`);
       }
-      
+
       let html = `<h3>Select Trip for Budget Tracker</h3>
                   <p>Which trip would you like to manage expenses for?</p>
                   <ul class="trip-list" style="max-height: 300px; overflow-y: auto;">`;
-      
+
       // Iterate through all trips and create selector buttons
       App.State.allTrips.forEach(trip => {
-          html += `
+        html += `
           <li style="padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
               <div>
                   <strong>${App.Util.escapeHtml(trip.trip_name)}</strong><br>
@@ -745,19 +776,19 @@ const App = {
               </button>
           </li>`;
       });
-      
+
       html += `</ul><div class="modal-buttons text-center" style="margin-top: 15px;"><button onclick="App.Budget.closeBudgetTracker()" class="btn-close">Cancel</button></div>`;
       App.Util.showModal(html);
     },
-  
+
     openBudgetTracker: async function (trip_id) {
-        App.Util.showModal('<h3>Loading Expenses...</h3>');
+      App.Util.showModal('<h3>Loading Expenses...</h3>');
       try {
         const res = await fetch(`/get-expenses/${trip_id}`);
         const data = await res.json();
-        
+
         if (data.status !== 'success') {
-            throw new Error(data.message);
+          throw new Error(data.message);
         }
 
         // FIX: Safely parse budget values - guard against null/undefined to prevent NaN crash
@@ -861,27 +892,27 @@ const App = {
 
     openTripSelector: function () {
       if (!navigator.geolocation) {
-          return alert("Geolocation not supported by your browser.");
+        return alert("Geolocation not supported by your browser.");
       }
       if (App.State.watchId !== null) {
-          alert("Live tracking is already active.");
-          return;
+        alert("Live tracking is already active.");
+        return;
       }
       if (!App.State.allTrips || App.State.allTrips.length === 0) {
-          alert("You don't have any trips to track. Please plan a trip first.");
-          App.Trip.openTripPlanner();
-          return;
+        alert("You don't have any trips to track. Please plan a trip first.");
+        App.Trip.openTripPlanner();
+        return;
       }
-      
+
       if (App.Elements.liveTrackSelectorModal) {
-          App.Elements.liveTrackSelectorModal.classList.add('show');
-          this.loadTrackingTrips();
+        App.Elements.liveTrackSelectorModal.classList.add('show');
+        this.loadTrackingTrips();
       }
     },
-    
+
     closeTripSelector: function () {
       if (App.Elements.liveTrackSelectorModal) {
-          App.Elements.liveTrackSelectorModal.classList.remove('show');
+        App.Elements.liveTrackSelectorModal.classList.remove('show');
       }
     },
 
@@ -893,218 +924,218 @@ const App = {
       today.setHours(0, 0, 0, 0);
 
       App.State.allTrips.forEach(trip => {
-          const li = document.createElement("li");
-          li.style.cursor = "pointer";
-          li.style.padding = "12px";
-          li.style.borderBottom = "1px solid rgba(255,255,255,0.1)";
+        const li = document.createElement("li");
+        li.style.cursor = "pointer";
+        li.style.padding = "12px";
+        li.style.borderBottom = "1px solid rgba(255,255,255,0.1)";
 
-          // Work out trip status relative to today
-          const startDate  = trip.start_date ? new Date(trip.start_date) : null;
-          const endDate    = trip.end_date   ? new Date(trip.end_date)   : null;
-          let statusBadge  = '';
-          let statusWarn   = '';
+        // Work out trip status relative to today
+        const startDate = trip.start_date ? new Date(trip.start_date) : null;
+        const endDate = trip.end_date ? new Date(trip.end_date) : null;
+        let statusBadge = '';
+        let statusWarn = '';
 
-          if (startDate) {
-              startDate.setHours(0, 0, 0, 0);
-              if (endDate) endDate.setHours(0, 0, 0, 0);
+        if (startDate) {
+          startDate.setHours(0, 0, 0, 0);
+          if (endDate) endDate.setHours(0, 0, 0, 0);
 
-              const daysToStart = Math.ceil((startDate - today) / 86400000);
+          const daysToStart = Math.ceil((startDate - today) / 86400000);
 
-              if (daysToStart > 0) {
-                  // Future trip
-                  statusBadge = `<span style="background:#f59e0b;color:#000;border-radius:4px;padding:1px 6px;font-size:0.75rem;margin-left:6px;">In ${daysToStart}d</span>`;
-                  statusWarn  = `<div style="color:#f59e0b;font-size:0.78rem;margin-top:3px;">⚠️ Trip starts ${startDate.toDateString()} — ETA will reflect the planned travel date.</div>`;
-              } else if (endDate && today > endDate) {
-                  // Past trip
-                  statusBadge = `<span style="background:#ef4444;color:#fff;border-radius:4px;padding:1px 6px;font-size:0.75rem;margin-left:6px;">Past</span>`;
-                  statusWarn  = `<div style="color:#ef4444;font-size:0.78rem;margin-top:3px;">⚠️ This trip ended on ${endDate.toDateString()}. ETA uses today's time.</div>`;
-              } else {
-                  // Active / ongoing trip
-                  statusBadge = `<span style="background:#22c55e;color:#000;border-radius:4px;padding:1px 6px;font-size:0.75rem;margin-left:6px;">Active ✓</span>`;
-              }
+          if (daysToStart > 0) {
+            // Future trip
+            statusBadge = `<span style="background:#f59e0b;color:#000;border-radius:4px;padding:1px 6px;font-size:0.75rem;margin-left:6px;">In ${daysToStart}d</span>`;
+            statusWarn = `<div style="color:#f59e0b;font-size:0.78rem;margin-top:3px;">⚠️ Trip starts ${startDate.toDateString()} — ETA will reflect the planned travel date.</div>`;
+          } else if (endDate && today > endDate) {
+            // Past trip
+            statusBadge = `<span style="background:#ef4444;color:#fff;border-radius:4px;padding:1px 6px;font-size:0.75rem;margin-left:6px;">Past</span>`;
+            statusWarn = `<div style="color:#ef4444;font-size:0.78rem;margin-top:3px;">⚠️ This trip ended on ${endDate.toDateString()}. ETA uses today's time.</div>`;
+          } else {
+            // Active / ongoing trip
+            statusBadge = `<span style="background:#22c55e;color:#000;border-radius:4px;padding:1px 6px;font-size:0.75rem;margin-left:6px;">Active ✓</span>`;
           }
+        }
 
-          const dateLabel = startDate ? `<small style="opacity:0.7;"> | 📅 ${startDate.toDateString()}</small>` : '';
-          li.innerHTML = `
+        const dateLabel = startDate ? `<small style="opacity:0.7;"> | 📅 ${startDate.toDateString()}</small>` : '';
+        li.innerHTML = `
               <div><strong>${App.Util.escapeHtml(trip.trip_name)}</strong>${statusBadge} &mdash; ${App.Util.escapeHtml(trip.destination)}${dateLabel}</div>
               ${statusWarn}
           `;
-          li.onclick = () => {
-              this.closeTripSelector();
-              this.startLiveTracking(trip);
-          };
-          listEl.appendChild(li);
+        li.onclick = () => {
+          this.closeTripSelector();
+          this.startLiveTracking(trip);
+        };
+        listEl.appendChild(li);
       });
     },
 
     startLiveTracking: function (selectedTrip) {
       if (App.State.watchId !== null) {
-          alert("Live tracking is already active.");
-          return;
+        alert("Live tracking is already active.");
+        return;
       }
-      
+
       App.State.activeTripForTracking = selectedTrip;
       const trip = selectedTrip;
       const destLat = trip.latitude;
       const destLon = trip.longitude;
-      
+
       alert(`Starting live tracking for: ${trip.trip_name}.\nOpening map...`);
       App.Trip.openTripPlanner(true); // Open map in tracking mode
       App.State.isTrackingInitialized = false; // Reset flag
 
       App.State.watchId = navigator.geolocation.watchPosition(pos => {
         const { latitude, longitude } = pos.coords;
-        if (!App.State.map) return; 
+        if (!App.State.map) return;
 
         const startPoint = L.latLng(latitude, longitude);
         const endPoint = L.latLng(destLat, destLon);
-        
+
         if (!App.State.isTrackingInitialized) {
-            // --- This is the FIRST run ---
-            App.State.isTrackingInitialized = true;
-            
-             // Create route control for Leaflet
-            App.State.routeControl = L.Routing.control({
-                waypoints: [startPoint, endPoint],
-                routeWhileDragging: false,
-                show: true, // Show the route instructions
-                createMarker: function(i, wp, n) {
-                    if (i === 0) { // Start marker (user's location)
-                        App.State.liveMarker = L.marker(wp.latLng, {
-                            icon: L.icon({
-                                iconUrl: 'https://cdn-icons-png.flaticon.com/512/854/854878.png',
-                                iconSize: [35, 35]
-                            }),
-                            draggable: false // Make user marker not draggable
-                        }).bindPopup("Your Location");
-                        return App.State.liveMarker;
-                    } else { // Destination marker
-                        return L.marker(wp.latLng, {
-                            icon: L.icon({
-                                iconUrl: 'https://cdn-icons-png.flaticon.com/512/252/252025.png',
-                                iconSize: [30, 30]
-                            }),
-                            draggable: false
-                        }).bindPopup(trip.destination);
-                    }
-                }
-            }).on('routesfound', (e) => {
-                // This listener updates the ETA box
-                const summary = e.routes[0].summary;
-                const distanceKm = summary.totalDistance / 1000;
-                
-                if (App.Elements['route-dist']) App.Elements['route-dist'].textContent = `${distanceKm.toFixed(1)} km`;
-                
-                // Request ML ETA
-                this.updateMLEta(distanceKm);
-            }).addTo(App.State.map);
-            
+          // --- This is the FIRST run ---
+          App.State.isTrackingInitialized = true;
+
+          // Create route control for Leaflet
+          App.State.routeControl = L.Routing.control({
+            waypoints: [startPoint, endPoint],
+            routeWhileDragging: false,
+            show: true, // Show the route instructions
+            createMarker: function (i, wp, n) {
+              if (i === 0) { // Start marker (user's location)
+                App.State.liveMarker = L.marker(wp.latLng, {
+                  icon: L.icon({
+                    iconUrl: 'https://cdn-icons-png.flaticon.com/512/854/854878.png',
+                    iconSize: [35, 35]
+                  }),
+                  draggable: false // Make user marker not draggable
+                }).bindPopup("Your Location");
+                return App.State.liveMarker;
+              } else { // Destination marker
+                return L.marker(wp.latLng, {
+                  icon: L.icon({
+                    iconUrl: 'https://cdn-icons-png.flaticon.com/512/252/252025.png',
+                    iconSize: [30, 30]
+                  }),
+                  draggable: false
+                }).bindPopup(trip.destination);
+              }
+            }
+          }).on('routesfound', (e) => {
+            // This listener updates the ETA box
+            const summary = e.routes[0].summary;
+            const distanceKm = summary.totalDistance / 1000;
+
+            if (App.Elements['route-dist']) App.Elements['route-dist'].textContent = `${distanceKm.toFixed(1)} km`;
+
+            // Request ML ETA
+            this.updateMLEta(distanceKm);
+          }).addTo(App.State.map);
+
         } else {
-            // --- This is a SUBSEQUENT run ---
-            
-            // 1. Always update the marker's visual position (this is cheap)
-            if (App.State.liveMarker) {
-                App.State.liveMarker.setLatLng(startPoint);
-            }
-            // 2. Pan the map to the new position if it's out of view
-            if (!App.State.map.getBounds().contains(startPoint)) {
-                App.State.map.panTo(startPoint);
-            }
-            // 3. Update continuous ETA (Distance check)
-            const remainingDistMeters = startPoint.distanceTo(endPoint);
-            const remainingDistKm = remainingDistMeters / 1000;
-            if (App.Elements['route-dist']) App.Elements['route-dist'].textContent = `${remainingDistKm.toFixed(1)} km (Linear)`;
-            
-            // Debounce ML ETA calls (every 500m moved) to avoid spam
-            if (!this.lastEtaDist || Math.abs(this.lastEtaDist - remainingDistKm) > 0.5) {
-                this.lastEtaDist = remainingDistKm;
-                this.updateMLEta(remainingDistKm);
-            }
+          // --- This is a SUBSEQUENT run ---
+
+          // 1. Always update the marker's visual position (this is cheap)
+          if (App.State.liveMarker) {
+            App.State.liveMarker.setLatLng(startPoint);
+          }
+          // 2. Pan the map to the new position if it's out of view
+          if (!App.State.map.getBounds().contains(startPoint)) {
+            App.State.map.panTo(startPoint);
+          }
+          // 3. Update continuous ETA (Distance check)
+          const remainingDistMeters = startPoint.distanceTo(endPoint);
+          const remainingDistKm = remainingDistMeters / 1000;
+          if (App.Elements['route-dist']) App.Elements['route-dist'].textContent = `${remainingDistKm.toFixed(1)} km (Linear)`;
+
+          // Debounce ML ETA calls (every 500m moved) to avoid spam
+          if (!this.lastEtaDist || Math.abs(this.lastEtaDist - remainingDistKm) > 0.5) {
+            this.lastEtaDist = remainingDistKm;
+            this.updateMLEta(remainingDistKm);
+          }
         }
 
       }, err => {
         console.error("live tracking error:", err);
         let errorMsg = "Unable to get live location. Please ensure location services are enabled.";
-        if(err.code === 1) errorMsg = "Location permission denied. Please enable it in your browser settings.";
-        if(err.code === 2) errorMsg = "Location position unavailable. Check your network or GPS.";
+        if (err.code === 1) errorMsg = "Location permission denied. Please enable it in your browser settings.";
+        if (err.code === 2) errorMsg = "Location position unavailable. Check your network or GPS.";
         alert(errorMsg);
         this.stopLiveTracking(true); // silent stop
       }, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
     },
-    
+
     // ML ETA — uses trip's start_date as travel reference for future trips
-    updateMLEta: async function(distanceKm) {
-        if (distanceKm <= 0) return;
-        try {
-            // Use trip's planned start_date if it's in the future, else use now
-            const trip = App.State.activeTripForTracking;
-            let referenceTime = new Date(); // default: right now
+    updateMLEta: async function (distanceKm) {
+      if (distanceKm <= 0) return;
+      try {
+        // Use trip's planned start_date if it's in the future, else use now
+        const trip = App.State.activeTripForTracking;
+        let referenceTime = new Date(); // default: right now
 
-            if (trip && trip.start_date) {
-                const tripStart = new Date(trip.start_date);
-                tripStart.setHours(8, 0, 0, 0); // Assume 8 AM departure on trip day
-                if (tripStart > new Date()) {
-                    referenceTime = tripStart; // future trip → use planned start
-                }
-            }
+        if (trip && trip.start_date) {
+          const tripStart = new Date(trip.start_date);
+          tripStart.setHours(8, 0, 0, 0); // Assume 8 AM departure on trip day
+          if (tripStart > new Date()) {
+            referenceTime = tripStart; // future trip → use planned start
+          }
+        }
 
-            const hour    = referenceTime.getHours();
-            const dayType = (referenceTime.getDay() === 0 || referenceTime.getDay() === 6) ? 'weekend' : 'weekday';
+        const hour = referenceTime.getHours();
+        const dayType = (referenceTime.getDay() === 0 || referenceTime.getDay() === 6) ? 'weekend' : 'weekday';
 
-            const weatherSelect = document.getElementById('live_weather');
-            const weather = weatherSelect ? weatherSelect.value : 'clear';
+        const weatherSelect = document.getElementById('live_weather');
+        const weather = weatherSelect ? weatherSelect.value : 'clear';
 
-            const res = await fetch('/api/predict-eta', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    distance_km: distanceKm,
-                    hour_of_day: hour,
-                    day_type:    dayType,
-                    weather:     weather
-                })
-            });
-            const data = await res.json();
-            if (data.status === 'success') {
-                const durationMins = data.duration_minutes;
-                // Arrival = referenceTime + travel duration
-                const arrival = new Date(referenceTime.getTime() + durationMins * 60000);
+        const res = await fetch('/api/predict-eta', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            distance_km: distanceKm,
+            hour_of_day: hour,
+            day_type: dayType,
+            weather: weather
+          })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          const durationMins = data.duration_minutes;
+          // Arrival = referenceTime + travel duration
+          const arrival = new Date(referenceTime.getTime() + durationMins * 60000);
 
-                const dateStr = arrival.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
-                const timeStr = arrival.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const dateStr = arrival.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
+          const timeStr = arrival.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-                // Label: "Planned Arrival" for future trips, "ETA" for live/current
-                const isFuture  = referenceTime > new Date();
-                const label     = isFuture ? '📅 Planned Arrival' : '🚗 ETA';
-                const subLabel  = isFuture
-                    ? `Departs ${referenceTime.toDateString()} at ${referenceTime.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`
-                    : `${Math.ceil(durationMins)} min remaining`;
+          // Label: "Planned Arrival" for future trips, "ETA" for live/current
+          const isFuture = referenceTime > new Date();
+          const label = isFuture ? '📅 Planned Arrival' : '🚗 ETA';
+          const subLabel = isFuture
+            ? `Departs ${referenceTime.toDateString()} at ${referenceTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+            : `${Math.ceil(durationMins)} min remaining`;
 
-                if (document.getElementById('route-eta')) {
-                    document.getElementById('route-summary').style.display = 'block';
-                    document.getElementById('route-eta').innerHTML =
-                        `<span style="font-size:0.8rem;opacity:0.7;">${label}</span><br>
+          if (document.getElementById('route-eta')) {
+            document.getElementById('route-summary').style.display = 'block';
+            document.getElementById('route-eta').innerHTML =
+              `<span style="font-size:0.8rem;opacity:0.7;">${label}</span><br>
                          <strong>${timeStr}</strong> &nbsp;<span style="opacity:0.8;">(${dateStr})</span>
                          <br><span style="color:#aaa;font-size:0.85rem;font-weight:normal;">${subLabel}</span>`;
-                }
-            }
-        } catch(e) { console.error("ML ETA failed", e); }
-    },
-    
-    recalculateRoute: function() {
-        if (!App.State.isTrackingInitialized || !App.State.liveMarker || !App.State.routeControl) {
-            return alert("Tracking is not active.");
+          }
         }
-        
-        const currentPos = App.State.liveMarker.getLatLng();
-        const waypoints = App.State.routeControl.getWaypoints();
-        const destPos = waypoints[waypoints.length - 1].latLng; // Get the last waypoint (destination)
-        
-        App.Elements['route-dist'].textContent = 'Recalculating...';
-        App.Elements['route-eta'].textContent = '...';
-        
-        // This forces the control to find a new route
-        App.State.routeControl.setWaypoints([currentPos, destPos]);
+      } catch (e) { console.error("ML ETA failed", e); }
+    },
+
+    recalculateRoute: function () {
+      if (!App.State.isTrackingInitialized || !App.State.liveMarker || !App.State.routeControl) {
+        return alert("Tracking is not active.");
+      }
+
+      const currentPos = App.State.liveMarker.getLatLng();
+      const waypoints = App.State.routeControl.getWaypoints();
+      const destPos = waypoints[waypoints.length - 1].latLng; // Get the last waypoint (destination)
+
+      App.Elements['route-dist'].textContent = 'Recalculating...';
+      App.Elements['route-eta'].textContent = '...';
+
+      // This forces the control to find a new route
+      App.State.routeControl.setWaypoints([currentPos, destPos]);
     },
 
     stopLiveTracking: function (silent = false) {
@@ -1117,16 +1148,16 @@ const App = {
         App.State.routeControl = null;
       }
       if (App.State.liveMarker) {
-          if (App.State.map) App.State.map.removeLayer(App.State.liveMarker);
-          App.State.liveMarker = null;
+        if (App.State.map) App.State.map.removeLayer(App.State.liveMarker);
+        App.State.liveMarker = null;
       }
       App.State.activeTripForTracking = null;
       App.State.isTrackingInitialized = false;
       this.lastEtaDist = null;
-      
+
       if (App.Elements['route-summary']) App.Elements['route-summary'].style.display = 'none';
       if (App.Elements['recalculate-route-btn']) App.Elements['recalculate-route-btn'].style.display = 'none';
-      
+
       if (!silent) alert("Live tracking stopped.");
     }
   },
@@ -1162,98 +1193,98 @@ const App = {
       // ── Get coordinates ──
       let lat = null, lon = null;
       if (App.Util.getVal('latitude') && App.Util.getVal('longitude')) {
-          lat = parseFloat(App.Util.getVal('latitude'));
-          lon = parseFloat(App.Util.getVal('longitude'));
+        lat = parseFloat(App.Util.getVal('latitude'));
+        lon = parseFloat(App.Util.getVal('longitude'));
       } else if (App._userLat) {
-          lat = App._userLat;
-          lon = App._userLon;
+        lat = App._userLat;
+        lon = App._userLon;
       } else {
-          try {
-              const pos = await App.Util.getCurrentPosition();
-              lat = pos.coords.latitude;
-              lon = pos.coords.longitude;
-              App._userLat = lat;
-              App._userLon = lon;
-          } catch (e) { /* no GPS */ }
+        try {
+          const pos = await App.Util.getCurrentPosition();
+          lat = pos.coords.latitude;
+          lon = pos.coords.longitude;
+          App._userLat = lat;
+          App._userLon = lon;
+        } catch (e) { /* no GPS */ }
       }
 
       if (!lat) {
-          App.Util.showModal(`
+        App.Util.showModal(`
             <h3>${title}</h3>
             <p style="color:#f87171;">📍 Could not get your location. Please enable location services or plan a trip first.</p>
             <div class="modal-buttons"><button onclick="App.Budget.closeBudgetTracker()" class="btn-close">Close</button></div>`);
-          return;
+        return;
       }
 
       // ── Wikipedia Geosearch API ──
       // Returns up to 30 named Wikipedia articles near coordinates
       // Completely free, no API key, fast Wikipedia CDN
-      const radius    = 10000; // 10km
-      const limit     = 30;
-      const wikiUrl   = `https://en.wikipedia.org/w/api.php?` +
-          `action=query&list=geosearch` +
-          `&gscoord=${lat}|${lon}` +
-          `&gsradius=${radius}` +
-          `&gslimit=${limit}` +
-          `&format=json&origin=*`;
+      const radius = 10000; // 10km
+      const limit = 30;
+      const wikiUrl = `https://en.wikipedia.org/w/api.php?` +
+        `action=query&list=geosearch` +
+        `&gscoord=${lat}|${lon}` +
+        `&gsradius=${radius}` +
+        `&gslimit=${limit}` +
+        `&format=json&origin=*`;
 
       let places = [];
       try {
-          const res  = await fetch(wikiUrl);
-          const data = await res.json();
-          places = data?.query?.geosearch || [];
+        const res = await fetch(wikiUrl);
+        const data = await res.json();
+        places = data?.query?.geosearch || [];
       } catch (err) {
-          console.error('Wikipedia Geosearch failed:', err);
+        console.error('Wikipedia Geosearch failed:', err);
       }
 
       // ── Smart icon based on place name keywords ──
       const getIcon = (name) => {
-          const n = name.toLowerCase();
-          if (/fort|killa|qila|castle|palace|mahal/.test(n))        return { icon: 'fa-chess-rook',       color: '#f59e0b' };
-          if (/temple|mandir|devi|shiva|ganesh|hanuman|ram|kali|balaji|tirupati|jain|gurudwara|gurdwara/.test(n))
-                                                                     return { icon: 'fa-place-of-worship',  color: '#a78bfa' };
-          if (/mosque|masjid|dargah|tomb|mazar/.test(n))            return { icon: 'fa-place-of-worship',  color: '#34d399' };
-          if (/church|cathedral|chapel/.test(n))                    return { icon: 'fa-place-of-worship',  color: '#60a5fa' };
-          if (/museum|gallery|art|heritage/.test(n))                 return { icon: 'fa-landmark',          color: '#38bdf8' };
-          if (/ruin|archaeo|monument|memorial|pillar|stupa/.test(n)) return { icon: 'fa-monument',          color: '#fbbf24' };
-          if (/cave|cavern|lena|gufa/.test(n))                      return { icon: 'fa-mountain',          color: '#6ee7b7' };
-          if (/waterfall|falls|dam|lake|reservoir|river|kund|tirth/.test(n))
-                                                                     return { icon: 'fa-water',              color: '#38bdf8' };
-          if (/park|garden|reserve|sanctuary|wildlife|forest/.test(n))return { icon: 'fa-leaf',            color: '#4ade80' };
-          if (/beach|coast|sea|island/.test(n))                     return { icon: 'fa-umbrella-beach',    color: '#fbbf24' };
-          if (/zoo|safari/.test(n))                                  return { icon: 'fa-paw',               color: '#f472b6' };
-          if (/university|college|school|institute/.test(n))         return { icon: 'fa-graduation-cap',   color: '#818cf8' };
-          if (/hospital|medical|clinic/.test(n))                    return { icon: 'fa-hospital',          color: '#f87171' };
-          if (/market|bazaar|mall|shopping/.test(n))                return { icon: 'fa-shopping-bag',      color: '#fb923c' };
-          if (/stadium|ground|sport/.test(n))                       return { icon: 'fa-trophy',            color: '#fcd34d' };
-          if (/airport|airfield/.test(n))                           return { icon: 'fa-plane',             color: '#38bdf8' };
-          return { icon: 'fa-map-marker-alt', color: 'var(--primary)' };
+        const n = name.toLowerCase();
+        if (/fort|killa|qila|castle|palace|mahal/.test(n)) return { icon: 'fa-chess-rook', color: '#f59e0b' };
+        if (/temple|mandir|devi|shiva|ganesh|hanuman|ram|kali|balaji|tirupati|jain|gurudwara|gurdwara/.test(n))
+          return { icon: 'fa-place-of-worship', color: '#a78bfa' };
+        if (/mosque|masjid|dargah|tomb|mazar/.test(n)) return { icon: 'fa-place-of-worship', color: '#34d399' };
+        if (/church|cathedral|chapel/.test(n)) return { icon: 'fa-place-of-worship', color: '#60a5fa' };
+        if (/museum|gallery|art|heritage/.test(n)) return { icon: 'fa-landmark', color: '#38bdf8' };
+        if (/ruin|archaeo|monument|memorial|pillar|stupa/.test(n)) return { icon: 'fa-monument', color: '#fbbf24' };
+        if (/cave|cavern|lena|gufa/.test(n)) return { icon: 'fa-mountain', color: '#6ee7b7' };
+        if (/waterfall|falls|dam|lake|reservoir|river|kund|tirth/.test(n))
+          return { icon: 'fa-water', color: '#38bdf8' };
+        if (/park|garden|reserve|sanctuary|wildlife|forest/.test(n)) return { icon: 'fa-leaf', color: '#4ade80' };
+        if (/beach|coast|sea|island/.test(n)) return { icon: 'fa-umbrella-beach', color: '#fbbf24' };
+        if (/zoo|safari/.test(n)) return { icon: 'fa-paw', color: '#f472b6' };
+        if (/university|college|school|institute/.test(n)) return { icon: 'fa-graduation-cap', color: '#818cf8' };
+        if (/hospital|medical|clinic/.test(n)) return { icon: 'fa-hospital', color: '#f87171' };
+        if (/market|bazaar|mall|shopping/.test(n)) return { icon: 'fa-shopping-bag', color: '#fb923c' };
+        if (/stadium|ground|sport/.test(n)) return { icon: 'fa-trophy', color: '#fcd34d' };
+        if (/airport|airfield/.test(n)) return { icon: 'fa-plane', color: '#38bdf8' };
+        return { icon: 'fa-map-marker-alt', color: 'var(--primary)' };
       };
 
       // ── Expose cached places + title so the detail view can rebuild the list ──
-      App.Nearby._cachedPlaces  = places;
-      App.Nearby._cachedTitle   = title;
-      App.Nearby._cachedLat     = lat;
-      App.Nearby._cachedLon     = lon;
-      App.Nearby._getIcon       = getIcon;
+      App.Nearby._cachedPlaces = places;
+      App.Nearby._cachedTitle = title;
+      App.Nearby._cachedLat = lat;
+      App.Nearby._cachedLon = lon;
+      App.Nearby._getIcon = getIcon;
 
       App.Nearby._renderList();
     },
 
     // Render the list of places into the modal (called on load and on "Back")
-    _renderList: function() {
-      const places  = App.Nearby._cachedPlaces;
-      const title   = App.Nearby._cachedTitle;
-      const lat     = App.Nearby._cachedLat;
-      const lon     = App.Nearby._cachedLon;
+    _renderList: function () {
+      const places = App.Nearby._cachedPlaces;
+      const title = App.Nearby._cachedTitle;
+      const lat = App.Nearby._cachedLat;
+      const lon = App.Nearby._cachedLon;
       const getIcon = App.Nearby._getIcon;
 
       const items = places.map((p, idx) => {
-          const { icon, color } = getIcon(p.title);
-          const distKm  = (p.dist / 1000).toFixed(1);
-          const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.title)}&query=${p.lat},${p.lon}`;
+        const { icon, color } = getIcon(p.title);
+        const distKm = (p.dist / 1000).toFixed(1);
+        const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.title)}&query=${p.lat},${p.lon}`;
 
-          return `
+        return `
             <div style="display:flex;align-items:center;gap:12px;padding:11px 10px;
                         background:rgba(255,255,255,0.04);border-radius:10px;margin-bottom:6px;
                         border:1px solid rgba(255,255,255,0.06);transition:background 0.2s;"
@@ -1313,11 +1344,11 @@ const App = {
     },
 
     // Show inline Wikipedia summary for a place (no new tab)
-    _showPlaceDetail: async function(idx) {
-      const p       = App.Nearby._cachedPlaces[idx];
+    _showPlaceDetail: async function (idx) {
+      const p = App.Nearby._cachedPlaces[idx];
       const getIcon = App.Nearby._getIcon;
       const { icon, color } = getIcon(p.title);
-      const distKm  = (p.dist / 1000).toFixed(1);
+      const distKm = (p.dist / 1000).toFixed(1);
       const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.title)}&query=${p.lat},${p.lon}`;
 
       // Show loading state
@@ -1347,25 +1378,25 @@ const App = {
       let summaryHtml = '';
       let thumbnailHtml = '';
       try {
-          const wikiApiUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(p.title.replace(/ /g,'_'))}`;
-          const res  = await fetch(wikiApiUrl, { headers: { 'User-Agent': 'TripWise/1.0' } });
-          const data = await res.json();
+        const wikiApiUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(p.title.replace(/ /g, '_'))}`;
+        const res = await fetch(wikiApiUrl, { headers: { 'User-Agent': 'TripWise/1.0' } });
+        const data = await res.json();
 
-          if (data.extract && data.extract.length > 40) {
-              // Show 3 sentences max (same as chatbot)
-              const sentences = data.extract.split('. ').slice(0, 3).join('. ') + '.';
-              summaryHtml = `<p style="color:#cbd5e1;font-size:0.9rem;line-height:1.6;margin:0;">${sentences}</p>`;
-          } else {
-              summaryHtml = `<p style="color:#64748b;font-size:0.9rem;">No summary available for this place.</p>`;
-          }
+        if (data.extract && data.extract.length > 40) {
+          // Show 3 sentences max (same as chatbot)
+          const sentences = data.extract.split('. ').slice(0, 3).join('. ') + '.';
+          summaryHtml = `<p style="color:#cbd5e1;font-size:0.9rem;line-height:1.6;margin:0;">${sentences}</p>`;
+        } else {
+          summaryHtml = `<p style="color:#64748b;font-size:0.9rem;">No summary available for this place.</p>`;
+        }
 
-          if (data.thumbnail?.source) {
-              thumbnailHtml = `<img src="${data.thumbnail.source}"
+        if (data.thumbnail?.source) {
+          thumbnailHtml = `<img src="${data.thumbnail.source}"
                                    alt="${p.title}"
                                    style="width:100%;max-height:160px;object-fit:cover;border-radius:10px;margin-bottom:12px;">`;
-          }
+        }
       } catch (err) {
-          summaryHtml = `<p style="color:#64748b;font-size:0.9rem;">Could not fetch details right now.</p>`;
+        summaryHtml = `<p style="color:#64748b;font-size:0.9rem;">Could not fetch details right now.</p>`;
       }
 
       // Render the detail view
@@ -1413,8 +1444,8 @@ const App = {
     },
 
     // Stubs — kept for backward compat
-    getOverpassQuery: function() { return ''; },
-    formatPlace:      function() { return ''; },
+    getOverpassQuery: function () { return ''; },
+    formatPlace: function () { return ''; },
 
 
   },
@@ -1423,46 +1454,46 @@ const App = {
     openTravelTips: function () {
       // NEW: More tips, categorized
       const tipCategories = {
-          "Safety & Security": [
-              "Carry your Aadhaar Card / Voter ID — required for hotel check-ins and train travel in India.",
-              "Share your itinerary with family or friends back home.",
-              "Avoid walking alone at night in poorly lit or unfamiliar areas.",
-              "Use a money belt or secure pouch for your cash, cards, and phone.",
-              "Be wary of public Wi-Fi. Use a VPN for sensitive transactions.",
-              "Research common scams in your destination before arriving.",
-              "Travelling internationally? Keep passport + visa copies on cloud storage."
-          ],
-          "Packing Essentials": [
-              "Pack a basic first-aid kit (band-aids, pain relievers, antiseptic wipes).",
-              "A portable power bank is a lifesaver for long days.",
-              "Bring a reusable water bottle to stay hydrated and reduce plastic waste.",
-              "Pack one 'smart' outfit for unexpected formal occasions.",
-              "Roll your clothes instead of folding to save space and reduce wrinkles.",
-              "Bring universal power adapters."
-          ],
-          "Budget & Money": [
-              "Inform your bank of your travel plans to avoid blocked cards.",
-              "Carry a mix of cash and cards. Have a backup card stored separately.",
-              "Eat where the locals eat. It's often cheaper and more authentic.",
-              "Use public transportation instead of taxis or ride-shares.",
-              "Look for free walking tours or city passes for attractions.",
-              "Avoid currency exchange kiosks at airports; they have the worst rates."
-          ],
-          "Local Culture & Etiquette": [
-              "Learn a few basic phrases in the local language (Hello, Thank You, Excuse Me).",
-              "Research local customs and dress codes, especially for religious sites.",
-              "Be respectful when taking photos of people. Always ask for permission first.",
-              "Understand the local tipping culture.",
-              "Try the local cuisine, but be polite if you don't like something."
-          ]
+        "Safety & Security": [
+          "Carry your Aadhaar Card / Voter ID — required for hotel check-ins and train travel in India.",
+          "Share your itinerary with family or friends back home.",
+          "Avoid walking alone at night in poorly lit or unfamiliar areas.",
+          "Use a money belt or secure pouch for your cash, cards, and phone.",
+          "Be wary of public Wi-Fi. Use a VPN for sensitive transactions.",
+          "Research common scams in your destination before arriving.",
+          "Travelling internationally? Keep passport + visa copies on cloud storage."
+        ],
+        "Packing Essentials": [
+          "Pack a basic first-aid kit (band-aids, pain relievers, antiseptic wipes).",
+          "A portable power bank is a lifesaver for long days.",
+          "Bring a reusable water bottle to stay hydrated and reduce plastic waste.",
+          "Pack one 'smart' outfit for unexpected formal occasions.",
+          "Roll your clothes instead of folding to save space and reduce wrinkles.",
+          "Bring universal power adapters."
+        ],
+        "Budget & Money": [
+          "Inform your bank of your travel plans to avoid blocked cards.",
+          "Carry a mix of cash and cards. Have a backup card stored separately.",
+          "Eat where the locals eat. It's often cheaper and more authentic.",
+          "Use public transportation instead of taxis or ride-shares.",
+          "Look for free walking tours or city passes for attractions.",
+          "Avoid currency exchange kiosks at airports; they have the worst rates."
+        ],
+        "Local Culture & Etiquette": [
+          "Learn a few basic phrases in the local language (Hello, Thank You, Excuse Me).",
+          "Research local customs and dress codes, especially for religious sites.",
+          "Be respectful when taking photos of people. Always ask for permission first.",
+          "Understand the local tipping culture.",
+          "Try the local cuisine, but be polite if you don't like something."
+        ]
       };
 
       // NEW: Build accordion HTML
       let html = `<h3><i class="fas fa-lightbulb"></i> Smart Travel Tips</h3>`;
       html += `<div class="tips-accordion">`;
-      
+
       for (const category in tipCategories) {
-          html += `<div class="tip-category">
+        html += `<div class="tip-category">
                         <div class="tip-header">
                             <h4>${App.Util.escapeHtml(category)}</h4>
                             <i class="fas fa-chevron-down"></i>
@@ -1474,128 +1505,128 @@ const App = {
                         </div>
                    </div>`;
       }
-      
+
       html += `</div><div class="modal-buttons text-center"><button onclick="App.Budget.closeBudgetTracker()" class="btn-close">Close</button></div>`;
-      
+
       App.Util.showModal(html);
-      
+
       // Add click listeners for the new accordion
       document.querySelectorAll('.tip-header').forEach(header => {
-          header.addEventListener('click', () => {
-              header.parentElement.classList.toggle('active');
-          });
+        header.addEventListener('click', () => {
+          header.parentElement.classList.toggle('active');
+        });
       });
     }
   },
-  
+
   // ---------------------------------
   // 8. NEW CHATBOT MODULE
   // ---------------------------------
   Chatbot: {
-      init: function() {
-          if (App.Elements.chatSendBtn) {
-              App.Elements.chatSendBtn.addEventListener('click', this.sendMessage.bind(this));
-              App.Elements.chatInput.addEventListener('keypress', (e) => {
-                  if (e.key === 'Enter') this.sendMessage();
-              });
-          }
-      },
-      open: function() {
-          if (App.Elements.chatbotModal) {
-              App.Elements.chatbotModal.classList.add('show');
-              // Append generic suggestion chips if they don't exist yet
-              if (!document.getElementById('chatbot-chips')) {
-                 const chipsDiv = document.createElement('div');
-                 chipsDiv.id = 'chatbot-chips';
-                 chipsDiv.style.cssText = "display: flex; gap: 8px; padding: 10px; overflow-x: auto; background: rgba(0,0,0,0.2);";
-                 chipsDiv.innerHTML = `
+    init: function () {
+      if (App.Elements.chatSendBtn) {
+        App.Elements.chatSendBtn.addEventListener('click', this.sendMessage.bind(this));
+        App.Elements.chatInput.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') this.sendMessage();
+        });
+      }
+    },
+    open: function () {
+      if (App.Elements.chatbotModal) {
+        App.Elements.chatbotModal.classList.add('show');
+        // Append generic suggestion chips if they don't exist yet
+        if (!document.getElementById('chatbot-chips')) {
+          const chipsDiv = document.createElement('div');
+          chipsDiv.id = 'chatbot-chips';
+          chipsDiv.style.cssText = "display: flex; gap: 8px; padding: 10px; overflow-x: auto; background: rgba(0,0,0,0.2);";
+          chipsDiv.innerHTML = `
                     <button class="chip" onclick="App.Chatbot.sendQuick('Find Nearby Facilities')" style="white-space:nowrap; padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; background: var(--primary); border: none; color:auto; cursor:pointer;">🏥 Facilities</button>
                     <button class="chip" onclick="App.Chatbot.sendQuick('Safety Tips')" style="white-space:nowrap; padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; background: var(--primary); border: none; color:auto; cursor:pointer;">🛡️ Safety</button>
                     <button class="chip" onclick="App.Chatbot.sendQuick('Where am I?')" style="white-space:nowrap; padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; background: var(--primary); border: none; color:auto; cursor:pointer;">📍 Location</button>
                  `;
-                 if(App.Elements.chatWindow) {
-                     App.Elements.chatWindow.parentElement.insertBefore(chipsDiv, App.Elements.chatInput.parentElement);
-                 }
-              }
-          }
-          if (App.Elements.chatInput) App.Elements.chatInput.focus();
-      },
-      sendQuick: function(text) {
-          if (App.Elements.chatInput) {
-              App.Elements.chatInput.value = text;
-              this.sendMessage();
-          }
-      },
-      close: function() {
-          if (App.Elements.chatbotModal) App.Elements.chatbotModal.classList.remove('show');
-      },
-      sendMessage: async function() {
-          const input = App.Elements.chatInput ? App.Elements.chatInput.value.trim() : '';
-          if (!input) return;
-          if (input.length > 500) {
-              this.addMessage('⚠️ Please keep messages under 500 characters.', 'bot');
-              return;
-          }
-          
-          this.addMessage(input, 'user');
-          App.Elements.chatInput.value = "";
-          
-          // Show typing indicator immediately
-          if (App.Elements['bot-typing-indicator']) {
-              App.Elements['bot-typing-indicator'].style.display = 'flex';
-          }
           if (App.Elements.chatWindow) {
-              App.Elements.chatWindow.scrollTop = App.Elements.chatWindow.scrollHeight;
+            App.Elements.chatWindow.parentElement.insertBefore(chipsDiv, App.Elements.chatInput.parentElement);
           }
-          
-          // ─── Call the AI backend via handleChatbotMessage from chatbot.js ───
-          if (typeof window.handleChatbotMessage === 'function') {
-              await window.handleChatbotMessage(input);
-          } else {
-              // Fallback if chatbot.js fails to load
-              if (App.Elements['bot-typing-indicator']) {
-                  App.Elements['bot-typing-indicator'].style.display = 'none';
-              }
-              this.addMessage('⚠️ AI module offline. Emergency numbers: Police 100/112, Ambulance 108.', 'bot');
-          }
-      },
-      addMessage: function(message, sender) {
-          const msgDiv = document.createElement('div');
-          msgDiv.className = `chat-message ${sender}`;
-          msgDiv.innerHTML = `<p>${message}</p>`; // Allow HTML from chatbot
-          msgDiv.style.opacity = '0';
-          msgDiv.style.transform = 'translateY(8px)';
-          
-          // Insert before typing indicator
-          if (App.Elements.chatWindow && App.Elements['bot-typing-indicator']) {
-            App.Elements.chatWindow.insertBefore(msgDiv, App.Elements['bot-typing-indicator']);
-            App.Elements.chatWindow.scrollTop = App.Elements.chatWindow.scrollHeight;
-          }
-          
-          // Animate in
-          requestAnimationFrame(() => {
-              msgDiv.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-              msgDiv.style.opacity = '1';
-              msgDiv.style.transform = 'translateY(0)';
-          });
-      },
-      // Legacy getResponse kept for backward compat — no longer used
-      getResponse: function(input) {
-          return "Please upgrade — using async backend now.";
+        }
       }
+      if (App.Elements.chatInput) App.Elements.chatInput.focus();
+    },
+    sendQuick: function (text) {
+      if (App.Elements.chatInput) {
+        App.Elements.chatInput.value = text;
+        this.sendMessage();
+      }
+    },
+    close: function () {
+      if (App.Elements.chatbotModal) App.Elements.chatbotModal.classList.remove('show');
+    },
+    sendMessage: async function () {
+      const input = App.Elements.chatInput ? App.Elements.chatInput.value.trim() : '';
+      if (!input) return;
+      if (input.length > 500) {
+        this.addMessage('⚠️ Please keep messages under 500 characters.', 'bot');
+        return;
+      }
+
+      this.addMessage(input, 'user');
+      App.Elements.chatInput.value = "";
+
+      // Show typing indicator immediately
+      if (App.Elements['bot-typing-indicator']) {
+        App.Elements['bot-typing-indicator'].style.display = 'flex';
+      }
+      if (App.Elements.chatWindow) {
+        App.Elements.chatWindow.scrollTop = App.Elements.chatWindow.scrollHeight;
+      }
+
+      // ─── Call the AI backend via handleChatbotMessage from chatbot.js ───
+      if (typeof window.handleChatbotMessage === 'function') {
+        await window.handleChatbotMessage(input);
+      } else {
+        // Fallback if chatbot.js fails to load
+        if (App.Elements['bot-typing-indicator']) {
+          App.Elements['bot-typing-indicator'].style.display = 'none';
+        }
+        this.addMessage('⚠️ AI module offline. Emergency numbers: Police 100/112, Ambulance 108.', 'bot');
+      }
+    },
+    addMessage: function (message, sender) {
+      const msgDiv = document.createElement('div');
+      msgDiv.className = `chat-message ${sender}`;
+      msgDiv.innerHTML = `<p>${message}</p>`; // Allow HTML from chatbot
+      msgDiv.style.opacity = '0';
+      msgDiv.style.transform = 'translateY(8px)';
+
+      // Insert before typing indicator
+      if (App.Elements.chatWindow && App.Elements['bot-typing-indicator']) {
+        App.Elements.chatWindow.insertBefore(msgDiv, App.Elements['bot-typing-indicator']);
+        App.Elements.chatWindow.scrollTop = App.Elements.chatWindow.scrollHeight;
+      }
+
+      // Animate in
+      requestAnimationFrame(() => {
+        msgDiv.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+        msgDiv.style.opacity = '1';
+        msgDiv.style.transform = 'translateY(0)';
+      });
+    },
+    // Legacy getResponse kept for backward compat — no longer used
+    getResponse: function (input) {
+      return "Please upgrade — using async backend now.";
+    }
   },
-  
+
   // ---------------------------------
   // 9. UTILITIES
   // ---------------------------------
   Util: {
     getVal: function (id) {
-        const el = App.Elements[id] || document.getElementById(id);
-        return el ? el.value : '';
+      const el = App.Elements[id] || document.getElementById(id);
+      return el ? el.value : '';
     },
     setVal: function (id, value) {
-        const el = App.Elements[id] || document.getElementById(id);
-        if (el) el.value = value;
+      const el = App.Elements[id] || document.getElementById(id);
+      if (el) el.value = value;
     },
     escapeHtml: function (text) {
       if (!text) return '';
@@ -1604,15 +1635,15 @@ const App = {
       });
     },
     // Haversine distance in km (rounded to 1 decimal)
-    calcDist: function(lat1, lon1, lat2, lon2) {
-        if (!lat1 || !lon1 || !lat2 || !lon2) return null;
-        const R = 6371;
-        const dLat = (lat2 - lat1) * Math.PI / 180;
-        const dLon = (lon2 - lon1) * Math.PI / 180;
-        const a = Math.sin(dLat/2) * Math.sin(dLat/2)
-                + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180)
-                * Math.sin(dLon/2) * Math.sin(dLon/2);
-        return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFixed(1);
+    calcDist: function (lat1, lon1, lat2, lon2) {
+      if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+        + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180)
+        * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(1);
     },
     showModal: function (htmlContent) {
       if (App.Elements.budgetTrackerModal && App.Elements.budgetTrackerModalContent) {
@@ -1623,32 +1654,32 @@ const App = {
       }
     },
     // NEW: Promise-based Geolocation
-    getCurrentPosition: function() {
-        return new Promise((resolve, reject) => {
-            if (!navigator.geolocation) {
-                reject(new Error("Geolocation not supported."));
-            }
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-                enableHighAccuracy: true,
-                timeout: 5000,
-                maximumAge: 0
-            });
+    getCurrentPosition: function () {
+      return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+          reject(new Error("Geolocation not supported."));
+        }
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 0
         });
+      });
     },
     // Helper function to check if a point is near a coordinate
-    isNear: function(element, lat, lon) {
-        const R = 6371e3; // metres
-        const lat1 = element.lat * Math.PI/180;
-        const lat2 = lat * Math.PI/180;
-        const deltaLat = (lat-element.lat) * Math.PI/180;
-        const deltaLon = (lon-element.lon) * Math.PI/180;
+    isNear: function (element, lat, lon) {
+      const R = 6371e3; // metres
+      const lat1 = element.lat * Math.PI / 180;
+      const lat2 = lat * Math.PI / 180;
+      const deltaLat = (lat - element.lat) * Math.PI / 180;
+      const deltaLon = (lon - element.lon) * Math.PI / 180;
 
-        const a = Math.sin(deltaLat/2) * Math.sin(deltaLat/2) +
-                  Math.cos(lat1) * Math.cos(lat2) *
-                  Math.sin(deltaLon/2) * Math.sin(deltaLon/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        const d = R * c; // in metres
-        return d < 11000; // 11km radius for grouping
+      const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+        Math.cos(lat1) * Math.cos(lat2) *
+        Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const d = R * c; // in metres
+      return d < 11000; // 11km radius for grouping
     }
   }
 };
@@ -1657,12 +1688,12 @@ const App = {
 // 10. APP ENTRY POINT
 // ---------------------------------
 window.onload = () => {
-    try {
-        App.init();
-    } catch(e) {
-        console.error("Failed to initialize app:", e);
-        document.body.innerHTML = "<h1 style='color:red; text-align: center; margin-top: 50px;'>Error: Application failed to load.</h1><p style='text-align: center;'>This is likely due to a mismatch between dashboard.html and dashboard.js. Please ensure all files are updated.</p>";
-    }
+  try {
+    App.init();
+  } catch (e) {
+    console.error("Failed to initialize app:", e);
+    document.body.innerHTML = "<h1 style='color:red; text-align: center; margin-top: 50px;'>Error: Application failed to load.</h1><p style='text-align: center;'>This is likely due to a mismatch between dashboard.html and dashboard.js. Please ensure all files are updated.</p>";
+  }
 };
 
 // Global bridge functions
@@ -1671,4 +1702,4 @@ function closeTripPlanner() { App.Trip.closeTripPlanner(); }
 function saveTripEdits() { App.Trip.saveTripEdits(); }
 function closeEditPanel() { App.Trip.closeEditPanel(); }
 function closeMyTripsModal() { App.Trip.closeMyTripsModal(); }
-function clearTripForm() { App.Budget.clearTripForm(); }
+function clearTripForm() { App.Budget.clearTripForm(); }
