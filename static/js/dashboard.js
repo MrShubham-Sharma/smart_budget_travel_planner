@@ -592,64 +592,103 @@ const App = {
     },
     
     estimateBudget: async function() {
-        const destination = App.Util.getVal('destination');
-        const start_date  = App.Util.getVal('start_date');
-        const end_date    = App.Util.getVal('end_date');
+        const destination  = App.Util.getVal('destination');
+        const start_date   = App.Util.getVal('start_date');
+        const end_date     = App.Util.getVal('end_date');
 
-        // ✅ Destination is required before estimating
+        // ── 1. Destination is required ─────────────────────────────────────
         if (!destination || destination.trim() === '') {
             const destInput = document.getElementById('destination');
             if (destInput) {
                 destInput.style.border = '2px solid #ef4444';
-                destInput.placeholder = '⚠️ Please enter a destination first!';
+                destInput.placeholder  = '⚠️ Please enter a destination first!';
                 destInput.focus();
                 setTimeout(() => {
                     destInput.style.border = '';
-                    destInput.placeholder = 'e.g., Goa, India';
+                    destInput.placeholder  = 'e.g., Goa, India';
                 }, 3000);
             }
             return;
         }
 
-        const group_size    = parseInt(App.Util.getVal('group_size')) || 1;
-        const travel_style  = document.querySelector('input[name="travel_style"]:checked')?.value || 'mid';
-        const food_type     = document.querySelector('input[name="food_type"]:checked')?.value || 'dhaba';
-        const stay_type     = document.querySelector('input[name="stay_type"]:checked')?.value || 'budget_hotel';
-
-        // Calculate days cleanly
-        let days = 1;
-        let booking = 'normal';
-        if (start_date && end_date) {
-            const start = new Date(start_date);
-            const end = new Date(end_date);
-            if(end >= start) {
-               days = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
-            }
-            // Derive booking window from how far ahead the trip is
-            const daysFromNow = Math.ceil((new Date(start_date) - new Date()) / (1000 * 60 * 60 * 24));
-            if (daysFromNow <= 3)        booking = 'last-minute';
-            else if (daysFromNow >= 30)  booking = 'advance';
-            else                          booking = 'normal';
+        // ── 2. Dates are required ───────────────────────────────────────────
+        if (!start_date || !end_date) {
+            return alert('Please select Start and End dates first.');
+        }
+        const startDate = new Date(start_date);
+        const endDate   = new Date(end_date);
+        if (isNaN(startDate) || isNaN(endDate) || endDate < startDate) {
+            return alert('Please select valid Start and End dates.');
         }
 
-        App.Util.setVal('budget', 'Loading ML...');
+        // ── 3. Read all form values fresh every single call ─────────────────
+        const numDays      = Math.max(1, Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)));
+        const travelerType = document.querySelector('input[name="traveler_type"]:checked')?.value || 'solo';
+        const groupSize    = (travelerType === 'group') ? (parseInt(App.Util.getVal('group_size')) || 1) : 1;
+        const travelStyle  = document.querySelector('input[name="travel_style"]:checked')?.value  || 'mid';
+        const foodType     = document.querySelector('input[name="food_type"]:checked')?.value     || 'dhaba';
+        const stayType     = (document.querySelector('input[name="stay_type"]:checked')?.value)   || 'budget_hotel';
 
+        // ── 4. Auto-detect season from travel month ─────────────────────────
+        const startMonth = startDate.getMonth() + 1;
+        let season = 'shoulder';
+        if ([12, 1, 6, 7].includes(startMonth))      season = 'peak';
+        else if ([2, 3, 8, 9].includes(startMonth))  season = 'off-peak';
+
+        // ── 5. Auto-detect booking window ──────────────────────────────────
+        const daysFromNow = Math.ceil((startDate - new Date()) / (1000 * 60 * 60 * 24));
+        let booking = 'normal';
+        if (daysFromNow <= 3)      booking = 'last-minute';
+        else if (daysFromNow >= 30) booking = 'advance';
+
+        App.Util.setVal('budget', 'Calculating...');
+
+        // ── 6. Call the ML API ──────────────────────────────────────────────
         try {
             const res = await fetch('/api/predict-budget', {
-                method: 'POST',
+                method:  'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ days, group_size, travel_style, food_type, stay_type, booking })
+                body: JSON.stringify({
+                    days:         numDays,
+                    group_size:   groupSize,
+                    travel_style: travelStyle,
+                    food_type:    foodType,
+                    season:       season,
+                    booking:      booking,
+                    stay_type:    stayType
+                })
             });
             const data = await res.json();
             if (data.status === 'success') {
-                App.Util.setVal('budget', Math.ceil(data.estimated_budget));
+                const total = Math.ceil(data.estimated_budget);
+                const perPerson = Math.ceil(data.cost_per_person);
+                App.Util.setVal('budget', total);
+
+                const bookingLabel = {'last-minute':'Last Minute 🔥','normal':'Normal','advance':'Advance ✅'}[booking];
+                const foodLabel    = foodType.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+                const stayLabel    = stayType.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+                alert(
+`🧮 ML Budget Estimate
+
+👥 Travelers  : ${groupSize} person(s) — ${travelerType}
+🎒 Style      : ${travelStyle}  |  🍛 Food: ${foodLabel}
+🏨 Stay       : ${stayLabel}
+📅 Duration   : ${numDays} day(s)  |  Season: ${season}
+📆 Booking    : ${bookingLabel}
+
+💰 Per Person  : ₹${perPerson.toLocaleString('en-IN')}
+━━━━━━━━━━━━━━━━━━━━━━━━
+✈️ Total Budget : ₹${total.toLocaleString('en-IN')}
+(includes stay + food + local transport)`
+                );
             } else {
                 App.Util.setVal('budget', '');
-                console.error("Budget ML Error:", data.message);
+                alert('Budget error: ' + (data.message || 'Unknown error'));
             }
-        } catch(e) {
-            console.error(e);
+        } catch (e) {
+            console.error('estimateBudget error:', e);
             App.Util.setVal('budget', '');
+            alert('Failed to reach ML API. Is the server running?');
         }
     },
 
@@ -813,103 +852,13 @@ const App = {
         alert("Failed to add expense (see console)");
       }
     },
-
-    /**
-     * NEW: Smart Budget Estimator
-     */
-    estimateBudget: async function() {
-        // 0. CHECK LOCATION COMPATIBILITY (India Only)
-        const destinationStr = App.Util.getVal('destination') || '';
-        if (destinationStr.trim() !== '' && !destinationStr.toLowerCase().includes('india')) {
-            alert("Sorry, our Machine Learning Budget Engine currently only supports travel within India.");
-            App.Util.setVal('budget', '');
-            return;
-        }
-
-        // 1. Get number of days from trip dates
-        const startDateStr = App.Util.getVal('start_date');
-        const endDateStr = App.Util.getVal('end_date');
-        if (!startDateStr || !endDateStr) {
-            return alert("Please select Start and End dates first.");
-        }
-        const startDate = new Date(startDateStr);
-        const endDate = new Date(endDateStr);
-        if (isNaN(startDate) || isNaN(endDate) || endDate < startDate) {
-            return alert("Please select a valid Start and End date.");
-        }
-        const numDays = Math.ceil(Math.abs(endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
-
-        // 2. Get traveler profile
-        const travelerType = document.querySelector('input[name="traveler_type"]:checked').value;
-        const groupSize = (travelerType === 'group') ? (parseInt(App.Elements.group_size.value) || 1) : 1;
-        const travelStyle = document.querySelector('input[name="travel_style"]:checked').value;
-        const foodType = document.querySelector('input[name="food_type"]:checked').value;
-
-        // FIX: Read stay_type correctly
-        const stayTypeEl = document.querySelector('input[name="stay_type"]:checked');
-        const stayType = stayTypeEl ? stayTypeEl.value : 'budget_hotel';
-
-        // Calculate Peak Season based on highly-traveled months (12, 1, 6, 7)
-        const startMonth = startDate.getMonth() + 1;
-        let calcSeason = 'shoulder';
-        if ([12, 1, 6, 7].includes(startMonth)) calcSeason = 'peak';
-        else if ([2, 3, 8, 9].includes(startMonth)) calcSeason = 'off-peak';
-
-        // FIX: Derive booking window from how far ahead the trip is
-        const daysFromNow = Math.ceil((startDate - new Date()) / (1000 * 60 * 60 * 24));
-        let calcBooking = 'normal';
-        if (daysFromNow <= 3)       calcBooking = 'last-minute';
-        else if (daysFromNow >= 30) calcBooking = 'advance';
-
-        App.Util.setVal('budget', 'Loading ML Matrix...');
-
-        // 3. Request ML Budget Prediction
-        try {
-            const response = await fetch('/api/predict-budget', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    days: numDays,
-                    traveler_type: travelerType,
-                    group_size: groupSize,
-                    travel_style: travelStyle,
-                    food_type: foodType,
-                    season: calcSeason,
-                    booking: calcBooking,
-                    stay_type: stayType
-                })
-            });
-            const data = await response.json();
-
-            if (data.status === 'success') {
-                const estimatedBudget = data.estimated_budget;
-                App.Util.setVal('budget', estimatedBudget);
-                const bookingLabel = {'last-minute':'Last Minute','normal':'Normal','advance':'Advance Booking'}[calcBooking];
-                alert(`ML Budget Estimate:\n
-Travelers : ${groupSize} person(s) [${travelerType}, Style: ${travelStyle}, Food: ${foodType}]
-Stay Type : ${stayType.replace(/_/g, ' ')}
-Duration  : ${numDays} day(s)  |  Season: ${calcSeason}  |  Booking: ${bookingLabel}
-Cost/Person: ₹${data.cost_per_person}
----------------------------------
-Total Estimated Budget: ₹${estimatedBudget}
-(covers stay, food & local transport)`);
-
-            } else {
-                alert("Error predicting budget: " + data.message);
-                App.Util.setVal('budget', '');
-            }
-        } catch (err) {
-            console.error("estimateBudget error:", err);
-            alert("Failed to reach ML API (see console)");
-            App.Util.setVal('budget', '');
-        }
-    }
   },
 
   // ---------------------------------
   // 7. OTHER FEATURES MODULE (ENHANCED)
   // ---------------------------------
   Track: {
+
     openTripSelector: function () {
       if (!navigator.geolocation) {
           return alert("Geolocation not supported by your browser.");

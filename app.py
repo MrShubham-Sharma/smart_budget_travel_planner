@@ -402,7 +402,7 @@ def predict_budget_api():
         days = int(data.get('days', 1))
         group_size = int(data.get('group_size', 1))
         hotel_style = data.get('travel_style', 'mid')       # 'budget', 'mid', 'luxury'
-        food_type   = data.get('food_type', 'casual')        # 'street', 'casual', 'fine'
+        food_type   = data.get('food_type', 'dhaba')        # 'dhaba','veg_thali','nonveg_thali','local_cuisine','restaurant','hotel_buffet'
         season      = data.get('season', 'shoulder')         # 'peak', 'off-peak', 'shoulder', 'holiday'
         booking     = data.get('booking', 'normal')          # 'last-minute', 'normal', 'advance'
         stay_type   = data.get('stay_type', 'budget_hotel')  # accommodation type
