@@ -62,141 +62,109 @@ def generate_eta_grid():
         json.dump(eta_db, f)
     print(f"Successfully Trained {count} Unique ETA Pathways in {round(time.time() - start_time, 2)}s\n")
 
-def generate_budget_grid():
-    budget_db = {}
-    print("Initiating Deep Training on Advanced Budget Hypercube (v2 — with Stay Type)...")
-    print("Mapping Every Metric: Days, Group Size, Style, Food, Season, Booking, Stay Type...")
+def train_budget_ml_model():
+    print("Initiating True Machine Learning Training (Scikit-Learn RandomForest) for Budget...")
+    try:
+        import pandas as pd
+        import numpy as np
+        from sklearn.ensemble import RandomForestRegressor
+        from sklearn.pipeline import Pipeline
+        from sklearn.compose import ColumnTransformer
+        from sklearn.preprocessing import OneHotEncoder
+        import joblib
+    except ImportError:
+        print("Scikit-Learn stack missing. Skipping ML budget training. Please install pandas, scikit-learn, joblib.")
+        return
 
-    # ── NEW: Per-night accommodation cost per person (INR) ──────────────────
-    # These are the *base* nightly rates per person.
-    # Season multiplier and booking multiplier still apply on top.
+    # Base Constants 
     STAY_NIGHTLY_BASE = {
-        'hostel':        500,    # Dorm bunk, shared room
-        'camping':       700,    # Tent camping, basic facilities
-        'dharamshala':   300,    # Pilgrim rest house, very cheap
-        'ashram':        250,    # Yoga / spiritual retreat
-        'guesthouse':    1100,   # Simple B&B / guesthouse
-        'budget_hotel':  1400,   # OYO / economy hotel
-        'homestay':      1600,   # Host family, local immersion
-        'heritage_hotel':3000,   # Haveli / restored heritage property
-        '3star_hotel':   2800,   # Standard 3-star hotel
-        'resort':        5500,   # Beach / hill resort
-        '5star_hotel':   11000,  # Luxury 5-star property
-        'houseboat':     7000,   # Kerala backwater houseboat
-        'treehouse':     4500,   # Wayanad / jungle treehouse
-        'desert_camp':   4000,   # Jaisalmer / Spiti desert tent camp
-        'tent_resort':   3500,   # Rann of Kutch themed tent city
+        'hostel': 500, 'camping': 700, 'dharamshala': 300, 'ashram': 250,
+        'guesthouse': 1100, 'budget_hotel': 1400, 'homestay': 1600, 'heritage_hotel': 3000,
+        '3star_hotel': 2800, 'resort': 5500, '5star_hotel': 11000, 'houseboat': 7000,
+        'treehouse': 4500, 'desert_camp': 4000, 'tent_resort': 3500
     }
-
-    # The non-accommodation daily spend (food + local transport + misc) per person
-    # ── Food type: realistic daily per-person meal costs (INR) ────────────────
-    # Each value = total food spend per person per day (breakfast+lunch+dinner)
     FOOD_DAILY_COST = {
-        'veg_thali':    300,   # Veg thali at local dhabas (₹80-100/meal x 3)
-        'nonveg_thali': 450,   # Non-veg thali + egg dishes (₹120-160/meal x 3)
-        'local_cuisine':600,   # Regional specialties (Pav bhaji, Biryani, Dal Baati etc)
-        'dhaba':        250,   # Highway dhaba style — roti, sabzi, chai (cheapest)
-        'restaurant':   900,   # Sit-down restaurant with full meals + dessert
-        'hotel_buffet': 1600,  # Hotel buffet / spread — all-inclusive luxury meals
+        'veg_thali': 300, 'nonveg_thali': 450, 'local_cuisine': 600, 
+        'dhaba': 250, 'restaurant': 900, 'hotel_buffet': 1600
     }
-
-    # ── Dimensions ─────────────────────────────────────────────────────────
-    days_range      = range(1, 61)
-    groups          = range(1, 21)
-    styles          = ['budget', 'mid-range', 'mid', 'luxury']  # travel style
-    foods           = list(FOOD_DAILY_COST.keys())              # 6 real food types
-    seasons         = ['peak', 'off-peak', 'shoulder', 'holiday']
-    booking_windows = ['last-minute', 'normal', 'advance']
-    stay_types      = list(STAY_NIGHTLY_BASE.keys())        # 15 stay types
-
-    # Local transport per person per day (auto/cab/bus depending on style)
     TRANSPORT_DAILY_PP = {
-        'budget':    350,   # Shared auto, state bus, local trains
-        'mid-range': 700,   # Ola/Uber + occasional auto
-        'mid':       700,
-        'luxury':   2500,   # Private cab, rental car
+        'budget': 350, 'mid-range': 700, 'mid': 700, 'luxury': 2500
     }
+    SEASON_MULT = {'peak': 1.4, 'off-peak': 0.8, 'shoulder': 1.0, 'holiday': 1.8}
+    BOOKING_MULT = {'last-minute': 1.3, 'normal': 1.0, 'advance': 0.8}
 
-    season_mult  = {'peak': 1.4, 'off-peak': 0.8, 'shoulder': 1.0, 'holiday': 1.8}
-    booking_mult = {'last-minute': 1.3, 'normal': 1.0, 'advance': 0.8}
+    print("Generating 50,000 synthetic realistic travel records...")
+    np.random.seed(42)
+    n_samples = 50000
 
-    # Booking discount applies to accommodation only (flights/hotels booked later are pricier)
+    days_arr = np.random.randint(1, 61, n_samples)
+    group_arr = np.random.randint(1, 21, n_samples)
+    style_arr = np.random.choice(list(TRANSPORT_DAILY_PP.keys()), n_samples)
+    food_arr = np.random.choice(list(FOOD_DAILY_COST.keys()), n_samples)
+    season_arr = np.random.choice(list(SEASON_MULT.keys()), n_samples)
+    booking_arr = np.random.choice(list(BOOKING_MULT.keys()), n_samples)
+    stay_arr = np.random.choice(list(STAY_NIGHTLY_BASE.keys()), n_samples)
 
-    total_combinations = (
-        len(days_range) * len(groups) * len(styles) * len(foods) *
-        len(seasons) * len(booking_windows) * len(stay_types)
-    )
-    print(f"Total unique budget pathways to compute: {total_combinations:,}")
+    y_budget = []
+    
+    # Generate labels using the baseline formula + random Gaussian noise to simulate real-world variance
+    for i in range(n_samples):
+        # Baseline Feature Logic
+        s_mult = SEASON_MULT[season_arr[i]]
+        b_mult = BOOKING_MULT[booking_arr[i]]
+        d = days_arr[i]
+        grp = group_arr[i]
 
-    count = 0
-    start_time = time.time()
-
-    for d in days_range:
-        if d % 15 == 0:
-            pct = (count / total_combinations) * 100
-            print(f"Training Progress: [{str(d).zfill(2)} / 60 Trip Days] ... {pct:.1f}%")
-        str_d = str(d)
-        budget_db[str_d] = {}
-        # Longer stays = small nightly discount (loyalty / weekly rates)
         duration_discount = 0.82 if d > 14 else (0.91 if d >= 7 else 1.0)
+        group_discount = 0.65 if grp >= 10 else (0.80 if grp >= 4 else 1.0)
 
-        for g in groups:
-            str_g = str(g)
-            budget_db[str_d][str_g] = {}
-            # Larger groups share accommodation → per-person cost drops
-            group_discount = 0.65 if g >= 10 else (0.80 if g >= 4 else 1.0)
+        nightly_pp = STAY_NIGHTLY_BASE[stay_arr[i]] * s_mult * b_mult * duration_discount
+        food_daily_pp = FOOD_DAILY_COST[food_arr[i]] * s_mult
+        transport_pp = TRANSPORT_DAILY_PP[style_arr[i]] * s_mult
 
-            for s in styles:
-                budget_db[str_d][str_g][s] = {}
-                # Local transport cost per person per day (style-based)
-                transport_daily_pp = TRANSPORT_DAILY_PP[s]
+        base_total = (nightly_pp + food_daily_pp + transport_pp) * d * grp * group_discount
+        
+        # Inject random real-world price fluctuation (±10% noise)
+        noise = np.random.normal(0, 0.10) 
+        final_budget = base_total * (1 + noise)
+        y_budget.append(final_budget)
 
-                for f in foods:
-                    budget_db[str_d][str_g][s][f] = {}
-                    # Food cost is now directly from FOOD_DAILY_COST, season-adjusted
-                    raw_food_daily = FOOD_DAILY_COST[f]
+    df = pd.DataFrame({
+        'days': days_arr,
+        'group_size': group_arr,
+        'travel_style': style_arr,
+        'food_type': food_arr,
+        'season': season_arr,
+        'booking': booking_arr,
+        'stay_type': stay_arr
+    })
+    y = np.array(y_budget)
 
-                    for season in seasons:
-                        budget_db[str_d][str_g][s][f][season] = {}
-                        s_mult = season_mult[season]
+    # Scikit-Learn Pipeline
+    print("Training RandomForestRegressor model...")
+    categorical_features = ['travel_style', 'food_type', 'season', 'booking', 'stay_type']
+    
+    preprocessor = ColumnTransformer(
+        transformers=[('cat', OneHotEncoder(handle_unknown='ignore'), categorical_features)],
+        remainder='passthrough'
+    )
 
-                        for b in booking_windows:
-                            budget_db[str_d][str_g][s][f][season][b] = {}
-                            b_mult = booking_mult[b]
+    model_pipeline = Pipeline([
+        ('preprocessor', preprocessor),
+        ('regressor', RandomForestRegressor(n_estimators=30, max_depth=15, random_state=42, n_jobs=-1))
+    ])
 
-                            for st in stay_types:
-                                # ── Per-person nightly accommodation cost ──
-                                nightly_pp = (
-                                    STAY_NIGHTLY_BASE[st]
-                                    * s_mult
-                                    * b_mult
-                                    * duration_discount
-                                )
-
-                                # ── Per-person food cost (season affects prices) ──
-                                food_daily_pp = raw_food_daily * s_mult
-
-                                # ── Local transport per person per day ──
-                                transport_pp = transport_daily_pp * s_mult
-
-                                # ── Total for the ENTIRE trip (all persons) ──
-                                total = round(
-                                    (nightly_pp + food_daily_pp + transport_pp)
-                                    * d          # number of nights/days
-                                    * g          # number of people
-                                    * group_discount,
-                                    2
-                                )
-                                budget_db[str_d][str_g][s][f][season][b][st] = total
-                                count += 1
-
+    start_time = time.time()
+    model_pipeline.fit(df, y)
+    
     os.makedirs('models', exist_ok=True)
-    with open('models/budget_grid.json', 'w') as f:
-        json.dump(budget_db, f)
+    joblib.dump(model_pipeline, 'models/budget_rf.pkl')
+    
     elapsed = round(time.time() - start_time, 2)
-    print(f"Successfully Trained {count:,} Unique Budget Pathways in {elapsed}s\n")
+    print(f"Successfully trained & saved True ML Budget Model (budget_rf.pkl) in {elapsed}s\n")
+
 
 if __name__ == "__main__":
     generate_eta_grid()
-    # generate_budget_grid() # Disabled: Engine is now mathematically purely O(1)
+    train_budget_ml_model()
     print("ALL ML HYPERCUBES FULLY SYNTHESIZED")

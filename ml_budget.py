@@ -38,24 +38,39 @@ TRANSPORT_DAILY_PP = {
     'luxury':   2500,   
 }
 
-SEASON_MULT  = {'peak': 1.4, 'off-peak': 0.8, 'shoulder': 1.0, 'holiday': 1.8}
-BOOKING_MULT = {'last-minute': 1.3, 'normal': 1.0, 'advance': 0.8}
+import pandas as pd
+import joblib
 
 class HypercubeBudgetEngine:
     """
-    N-Dimensional Budget Hypercube Inference Engine (v2) - Direct Mathematical Engine.
-    Uses 0 RAM, loads instantly, impossible to hit OOM (Out Of Memory) errors.
+    N-Dimensional Budget Hypercube Inference Engine (v2) - True Scikit-Learn Model.
+    Dynamically predicts using RandomForestRegressor rather than hardcoded logic.
     """
+    MODEL_PATH = 'models/budget_rf.pkl'
+
     def __init__(self):
-        print("Loaded Budget Hypercube v2 parameters successfully (O(1) Math).")
+        self.pipeline = None
+        self._load()
+
+    def _load(self):
+        try:
+            self.pipeline = joblib.load(self.MODEL_PATH)
+            print("Loaded True ML Budget RandomForest Model successfully.")
+        except Exception as e:
+            print("Warning: Budget ML model not found or incomplete. Run train_models.py first.", e)
+            self.pipeline = None
 
     def predict(self, days, travel_style="mid", food_type="casual",
                 group_size=1, season="shoulder", booking="normal",
                 stay_type="budget_hotel"):
         if days <= 0:
             return 0.0
-
+            
         grp = min(20, max(1, int(group_size)))
+
+        # Fallback dictionary matching aliases
+        VALID_FOOD_TYPES = ['veg_thali', 'nonveg_thali', 'local_cuisine', 'dhaba', 'restaurant', 'hotel_buffet']
+        VALID_STAY_TYPES = ['hostel', 'camping', 'dharamshala', 'ashram', 'guesthouse', 'budget_hotel', 'homestay', 'heritage_hotel', '3star_hotel', 'resort', '5star_hotel', 'houseboat', 'treehouse', 'desert_camp', 'tent_resort']
 
         style = travel_style.lower()
         if style not in ['budget', 'mid-range', 'mid', 'luxury']:
@@ -81,28 +96,32 @@ class HypercubeBudgetEngine:
         st = stay_type.lower().strip()
         if st not in VALID_STAY_TYPES:
             _aliases = {
-                'budget':   'budget_hotel',
-                'mid':      '3star_hotel',
-                'luxury':   '5star_hotel',
-                'hotel':    'budget_hotel',
-                'camp':     'camping',
+                'budget': 'budget_hotel', 'mid': '3star_hotel',
+                'luxury': '5star_hotel', 'hotel': 'budget_hotel',
+                'camp': 'camping',
             }
             st = _aliases.get(st, 'budget_hotel')
 
-        # Multipliers
-        s_mult = SEASON_MULT[s]
-        b_mult = BOOKING_MULT[b]
+        # If pipeline not ready, return fallback math
+        if not self.pipeline:
+            self._load()
+        if not self.pipeline:
+            return round(1500 * days * grp, 2)
 
-        duration_discount = 0.82 if days > 14 else (0.91 if days >= 7 else 1.0)
-        group_discount = 0.65 if grp >= 10 else (0.80 if grp >= 4 else 1.0)
-
-        # Baseline sums per person
-        nightly_pp = STAY_NIGHTLY_BASE[st] * s_mult * b_mult * duration_discount
-        food_daily_pp = FOOD_DAILY_COST[food] * s_mult
-        transport_pp = TRANSPORT_DAILY_PP[style] * s_mult
-
-        total = round((nightly_pp + food_daily_pp + transport_pp) * days * grp * group_discount, 2)
-        return total
+        # Prepare DataFrame to match the training pipeline schema
+        df = pd.DataFrame([{
+            'days': days,
+            'group_size': grp,
+            'travel_style': style,
+            'food_type': food,
+            'season': s,
+            'booking': b,
+            'stay_type': st
+        }])
+        
+        # Real ML prediction (uses RandomForest + Pipeline logic)
+        predicted_budget = float(self.pipeline.predict(df)[0])
+        return round(predicted_budget, 2)
 
 # Singleton instance
 budget_model = HypercubeBudgetEngine()

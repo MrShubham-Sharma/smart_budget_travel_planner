@@ -1729,10 +1729,9 @@ button:hover {
     0%, 100% { opacity: 1; }
     50%       { opacity: 0.4; }
 }
- / *   A u t o c o m p l e t e   s p e c i f i c   * / 
- # s t a r t _ s u g g e s t i o n s   l i . h i g h l i g h t e d ,   
- # d e s t _ s u g g e s t i o n s   l i . h i g h l i g h t e d   { 
-         b a c k g r o u n d - c o l o r :   # f c a 3 1 1 ; 
-         c o l o r :   w h i t e ; 
- }  
- 
+/* Autocomplete specific */
+#start_suggestions li.highlighted,
+#dest_suggestions li.highlighted {
+    background-color: #fca311;
+    color: white;
+}

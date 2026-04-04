@@ -12,3 +12,7 @@ SQLAlchemy==2.0.44
 geopy==2.4.1
 python-dotenv==1.0.1
 psycopg2-binary==2.9.10
+scikit-learn==1.6.1
+joblib==1.4.2
+pandas==2.2.3
+numpy==2.2.3
