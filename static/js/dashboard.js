@@ -597,24 +597,32 @@ const App = {
         const group_size = parseInt(App.Util.getVal('group_size')) || 1;
         const travel_style = document.querySelector('input[name="travel_style"]:checked')?.value || 'mid';
         const food_type = document.querySelector('input[name="food_type"]:checked')?.value || 'casual';
-        
+        // FIX: read stay_type from the form radio buttons
+        const stay_type = document.querySelector('input[name="stay_type"]:checked')?.value || 'budget_hotel';
+
         // Calculate days cleanly
         let days = 1;
+        let booking = 'normal';
         if (start_date && end_date) {
             const start = new Date(start_date);
             const end = new Date(end_date);
             if(end >= start) {
                days = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
             }
+            // Derive booking window from how far ahead the trip is
+            const daysFromNow = Math.ceil((new Date(start_date) - new Date()) / (1000 * 60 * 60 * 24));
+            if (daysFromNow <= 3)        booking = 'last-minute';
+            else if (daysFromNow >= 30)  booking = 'advance';
+            else                          booking = 'normal';
         }
-        
+
         App.Util.setVal('budget', 'Loading ML...');
-        
+
         try {
             const res = await fetch('/api/predict-budget', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ days, group_size, travel_style, food_type })
+                body: JSON.stringify({ days, group_size, travel_style, food_type, stay_type, booking })
             });
             const data = await res.json();
             if (data.status === 'success') {
@@ -628,6 +636,7 @@ const App = {
             App.Util.setVal('budget', '');
         }
     },
+
     
     openBudgetPlanner: function() {
       if (!App.State.allTrips || App.State.allTrips.length === 0) {
@@ -764,7 +773,6 @@ const App = {
      */
     estimateBudget: async function() {
         // 0. CHECK LOCATION COMPATIBILITY (India Only)
-        // Ensure the autocomplete result contains 'india'
         const destinationStr = App.Util.getVal('destination') || '';
         if (destinationStr.trim() !== '' && !destinationStr.toLowerCase().includes('india')) {
             alert("Sorry, our Machine Learning Budget Engine currently only supports travel within India.");
@@ -791,11 +799,21 @@ const App = {
         const travelStyle = document.querySelector('input[name="travel_style"]:checked').value;
         const foodType = document.querySelector('input[name="food_type"]:checked').value;
 
+        // FIX: Read stay_type correctly
+        const stayTypeEl = document.querySelector('input[name="stay_type"]:checked');
+        const stayType = stayTypeEl ? stayTypeEl.value : 'budget_hotel';
+
         // Calculate Peak Season based on highly-traveled months (12, 1, 6, 7)
         const startMonth = startDate.getMonth() + 1;
         let calcSeason = 'shoulder';
         if ([12, 1, 6, 7].includes(startMonth)) calcSeason = 'peak';
         else if ([2, 3, 8, 9].includes(startMonth)) calcSeason = 'off-peak';
+
+        // FIX: Derive booking window from how far ahead the trip is
+        const daysFromNow = Math.ceil((startDate - new Date()) / (1000 * 60 * 60 * 24));
+        let calcBooking = 'normal';
+        if (daysFromNow <= 3)       calcBooking = 'last-minute';
+        else if (daysFromNow >= 30) calcBooking = 'advance';
 
         App.Util.setVal('budget', 'Loading ML Matrix...');
 
@@ -810,22 +828,26 @@ const App = {
                     group_size: groupSize,
                     travel_style: travelStyle,
                     food_type: foodType,
-                    season: calcSeason
+                    season: calcSeason,
+                    booking: calcBooking,
+                    stay_type: stayType
                 })
             });
             const data = await response.json();
 
             if (data.status === 'success') {
                 const estimatedBudget = data.estimated_budget;
-                // 4. Fill the budget field
                 App.Util.setVal('budget', estimatedBudget);
+                const bookingLabel = {'last-minute':'Last Minute','normal':'Normal','advance':'Advance Booking'}[calcBooking];
                 alert(`ML Budget Estimate:\n
-Travelers : ${groupSize} person(s) [${travelerType}, Hotel: ${travelStyle}, Food: ${foodType}]
-Duration  : ${numDays} day(s)
-Base Rate : ₹${data.cost_per_person}/person for ${numDays} days
+Travelers : ${groupSize} person(s) [${travelerType}, Style: ${travelStyle}, Food: ${foodType}]
+Stay Type : ${stayType.replace(/_/g, ' ')}
+Duration  : ${numDays} day(s)  |  Season: ${calcSeason}  |  Booking: ${bookingLabel}
+Cost/Person: ₹${data.cost_per_person}
 ---------------------------------
 Total Estimated Budget: ₹${estimatedBudget}
 (covers stay, food & local transport)`);
+
             } else {
                 alert("Error predicting budget: " + data.message);
                 App.Util.setVal('budget', '');

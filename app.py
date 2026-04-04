@@ -378,27 +378,32 @@ def predict_budget_api():
     try:
         days = int(data.get('days', 1))
         group_size = int(data.get('group_size', 1))
-        hotel_style = data.get('travel_style', 'mid') # 'budget', 'mid-range', 'luxury'
-        food_type = data.get('food_type', 'casual')   # 'street', 'casual', 'fine'
-        season = data.get('season', 'shoulder')       # 'peak', 'off-peak', 'shoulder'
+        hotel_style = data.get('travel_style', 'mid')       # 'budget', 'mid', 'luxury'
+        food_type   = data.get('food_type', 'casual')        # 'street', 'casual', 'fine'
+        season      = data.get('season', 'shoulder')         # 'peak', 'off-peak', 'shoulder', 'holiday'
+        booking     = data.get('booking', 'normal')          # 'last-minute', 'normal', 'advance'
+        stay_type   = data.get('stay_type', 'budget_hotel')  # accommodation type
 
         if days <= 0 or group_size <= 0:
             return jsonify({"status": "error", "message": "Days and group size must be positive"}), 400
 
-        # Query the advanced Hypercube Budget engine
+        # Query the advanced Hypercube Budget engine (v2 — stay-type + booking aware)
         total_budget = budget_model.predict(
             days=days,
             travel_style=hotel_style,
             food_type=food_type,
             group_size=group_size,
-            season=season
+            season=season,
+            booking=booking,
+            stay_type=stay_type
         )
 
         return jsonify({
             "status": "success",
             "estimated_budget": total_budget,
             "cost_per_person": round(total_budget / group_size, 2) if group_size > 0 else total_budget,
-            "days": days
+            "days": days,
+            "stay_type": stay_type
         })
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
