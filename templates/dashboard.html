@@ -69,11 +69,19 @@
         <p>Get safety advice and best tips for smooth travel experiences.</p>
       </div>
 
+      <!-- 6. Itineraries (NEW) -->
+      <div class="glass-card card option-card" data-action="itinerary">
+        <div class="glass-icon"><i class="fas fa-calendar-alt"></i></div>
+        <h3>Trip Itineraries</h3>
+        <p>Generate daily smart itineraries powered by Wikipedia.</p>
+      </div>
+
     </div>
     
     <div style="display:none;" id="trips"></div>
   </main>
 
+  <!-- EXISTING MODALS -->
   <div id="tripPlannerModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="planner-title">
     <div class="modal-content">
       <span class="close" onclick="closeTripPlanner()">&times;</span>
@@ -201,11 +209,11 @@
       <div style="position: relative;">
           <div id="map"></div>
           <!-- Custom ML ETA Floating Box (Moved outside #map so Leaflet doesn't destroy it) -->
-          <div id="route-summary" style="display:none; position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 1000; background: rgba(10, 15, 20, 0.85); padding: 15px 25px; border-radius: 15px; backdrop-filter: blur(15px); color: white; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.7); border: 1px solid rgba(255,255,255,0.1); width: 90%; max-width: 400px; pointer-events: none;">
-              <div style="font-size: 0.9rem; margin-bottom: 5px; color: #ccc;">📍 Distance left: <span id="route-dist" style="font-weight: bold; color: var(--color-primary);">-- km</span></div>
+          <div id="route-summary-live" style="display:none; position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 1000; background: rgba(10, 15, 20, 0.85); padding: 15px 25px; border-radius: 15px; backdrop-filter: blur(15px); color: white; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.7); border: 1px solid rgba(255,255,255,0.1); width: 90%; max-width: 400px; pointer-events: none;">
+              <div style="font-size: 0.9rem; margin-bottom: 5px; color: #ccc;">📍 Distance left: <span id="route-dist-live" style="font-weight: bold; color: var(--color-primary);">-- km</span></div>
               <div style="font-size: 1.1rem; font-weight: bold; line-height: 1.4;">
                  Arrival Date & Time:<br>
-                 <span id="route-eta" style="color: #49d861; font-size: 1.25rem;">--</span>
+                 <span id="route-eta-live" style="color: #49d861; font-size: 1.25rem;">--</span>
               </div>
           </div>
       </div>
@@ -215,8 +223,8 @@
   <div id="liveTrackSelectorModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="live-selector-title">
     <div class="modal-content">
       <span class="close" onclick="if(window.App && window.App.Track) App.Track.closeTripSelector()">&times;</span>
-      <h2 id="live-selector-title">Select a Trip to Track</h2>
-      <p style="opacity: 0.8;">Choose any of your planned trips to start live tracking.</p>
+      <h2 id="live-selector-title" style="margin-bottom: 5px;">Select a Trip to Track</h2>
+      <p style="opacity: 0.8; margin-top: 0;">Choose any of your planned trips to start live tracking.</p>
       
       <div style="margin: 15px 0; text-align: left;">
           <label for="live_weather" style="font-weight: bold; font-size: 0.9rem;">🚗 Weather Conditions (For ML ETA):</label>
@@ -245,6 +253,39 @@
     <div class="modal-content">
       <span class="close" onclick="if(window.App && window.App.Budget) App.Budget.closeBudgetTracker()">&times;</span>
       <div id="budgetTrackerModalContent"></div>
+    </div>
+  </div>
+
+  <!-- ITINERARY SELECTOR MODAL -->
+  <div id="itinerarySelectorModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="itinerary-selector-title">
+    <div class="modal-content">
+      <span class="close" onclick="if(window.App && window.App.Itinerary) App.Itinerary.closeSelector()">&times;</span>
+      <h2 id="itinerary-selector-title" style="margin-bottom: 5px;">Build Trip Itinerary</h2>
+      <p style="opacity: 0.8; margin-top: 0;">Select a planned trip to auto-generate a day-by-day Wikipedia itinerary.</p>
+      
+      <ul id="itineraryTripsList" class="my-trips-list-container" style="max-height: 400px; overflow-y: auto; margin-top: 15px;">
+        <li>Loading your trips...</li>
+      </ul>
+      <div class="modal-buttons text-center">
+        <button type="button" onclick="if(window.App && window.App.Itinerary) App.Itinerary.closeSelector()" class="btn-close">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ITINERARY DISPLAY MODAL -->
+  <div id="itineraryDisplayModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="itinerary-title">
+    <div class="modal-content" style="max-width: 700px; background: #fff;">
+      <span class="close" onclick="if(window.App && window.App.Itinerary) App.Itinerary.closeDisplay()">&times;</span>
+      <h2 id="itinerary-title" style="margin-bottom: 5px;">Your Itinerary</h2>
+      <p style="color: #666; margin-top: 0; font-size: 0.9em;" id="itinerary-subtitle"></p>
+      
+      <div id="itinerary-container" style="margin-top: 20px; overflow-y: auto; max-height: 60vh; padding-right: 10px;">
+          <!-- Timeline content goes here -->
+      </div>
+      
+      <div class="modal-buttons text-center" style="margin-top: 20px;">
+        <button type="button" onclick="if(window.App && window.App.Itinerary) App.Itinerary.closeDisplay()" class="btn-close">Done</button>
+      </div>
     </div>
   </div>
 

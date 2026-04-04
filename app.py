@@ -1681,5 +1681,70 @@ def _process_chatbot(message):
             "I can look up <b>any place in India</b> instantly!")
 
 
+# ---------------------------------
+# ITINERARY GENERATOR API
+# ---------------------------------
+@app.route('/api/itinerary-generator', methods=['GET'])
+def get_itinerary_generator():
+    """Generates an itinerary using Wikipedia Geosearch based on Lat/Lon"""
+    lat = request.args.get('lat')
+    lon = request.args.get('lon')
+    days = request.args.get('days', 3)
+    
+    if not lat or not lon:
+        return jsonify({"status": "error", "message": "Missing coordinates"})
+        
+    try:
+        days = int(days)
+        # 1. Fetch nearby Wikipedia articles (Radius 10km, max 15 places)
+        search_url = f"https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord={lat}|{lon}&gsradius=10000&gslimit=15&format=json"
+        
+        headers = {'User-Agent': 'SmartTravelPlanner/1.0'}
+        geo_res = requests.get(search_url, headers=headers, timeout=5).json()
+        places = geo_res.get('query', {}).get('geosearch', [])
+        
+        if not places:
+            return jsonify({"status": "error", "message": "No famous activities found in Wikipedia around this location."})
+            
+        page_ids = [str(p['pageid']) for p in places]
+        places_data = []
+        
+        # 2. Fetch extracts & thumbnails efficiently in one batch query
+        detail_url = f"https://en.wikipedia.org/w/api.php?action=query&pageids={'|'.join(page_ids)}&prop=extracts|pageimages&exintro=1&explaintext=1&exchars=200&pithumbsize=400&format=json"
+        detail_res = requests.get(detail_url, headers=headers, timeout=5).json()
+        pages = detail_res.get('query', {}).get('pages', {})
+        
+        for k, v in pages.items():
+            places_data.append({
+                "title": v.get("title"),
+                "summary": v.get("extract", "A famous local landmark worth visiting."),
+                "image": v.get("thumbnail", {}).get("source", None),
+                "lat": next((p["lat"] for p in places if str(p["pageid"]) == str(k)), lat),
+                "lon": next((p["lon"] for p in places if str(p["pageid"]) == str(k)), lon)
+            })
+            
+        # 3. Mathematically chunk the places by the number of days!
+        import math
+        chunk_size = math.ceil(len(places_data) / days) if days > 0 else len(places_data)
+        itinerary = []
+        
+        for i in range(days):
+            day_activities = places_data[i * chunk_size : (i + 1) * chunk_size]
+            if day_activities:
+                itinerary.append({
+                    "day": i + 1,
+                    "activities": day_activities
+                })
+                
+        return jsonify({
+            "status": "success", 
+            "itinerary": itinerary,
+            "total_places": len(places_data)
+        })
+
+    except Exception as e:
+        print("Itinerary Error:", e)
+        return jsonify({"status": "error", "message": "Failed to generate itinerary. " + str(e)})
+
 if __name__ == "__main__":
     app.run(debug=app.config['DEBUG'])

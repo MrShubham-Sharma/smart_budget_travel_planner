@@ -96,6 +96,16 @@ const App = {
       this.Elements.myTripsList.addEventListener('click', this.Trip.handleMyTripsClick.bind(this.Trip));
     }
 
+    // Close suggestions on outside click
+    document.addEventListener('click', (e) => {
+      if (this.Elements.start_suggestions && !e.target.closest('.input-with-icon')) {
+        this.Elements.start_suggestions.innerHTML = '';
+      }
+      if (this.Elements.dest_suggestions && !e.target.closest('.input-with-icon')) {
+        this.Elements.dest_suggestions.innerHTML = '';
+      }
+    });
+
     // Budget Calculator radio buttons
     document.querySelectorAll('input[name="traveler_type"]').forEach(radio => {
       radio.addEventListener('change', (e) => {
@@ -143,6 +153,7 @@ const App = {
       case 'nearby': this.Nearby.openNearbyAttractions(); break;
       case 'live': this.Track.openTripSelector(); break;
       case 'tips': this.Tips.openTravelTips(); break;
+      case 'itinerary': this.Itinerary.openSelector(); break;
       case 'my-trips': this.Trip.openMyTripsModal(); break;
       case 'chatbot': this.Chatbot.open(); break;
       default: console.warn('Unknown action:', action);
@@ -636,12 +647,6 @@ const App = {
         }
         return;
       }
-      if (!destination.toLowerCase().includes('india')) {
-        alert("Sorry, our Machine Learning Budget Engine currently only supports travel within India.");
-        App.Util.setVal('budget', '');
-        return;
-      }
-
       // ── 2. Dates are required ───────────────────────────────────────────
       if (!start_date || !end_date) {
         return alert('Please select Start and End dates first.');
@@ -1680,6 +1685,122 @@ const App = {
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       const d = R * c; // in metres
       return d < 11000; // 11km radius for grouping
+    }
+  }, // <--- added comma here for new property
+
+  // ---------------------------------
+  // 11. ITINERARY MODULE
+  // ---------------------------------
+  Itinerary: {
+    openSelector: async function() {
+      const modal = document.getElementById('itinerarySelectorModal');
+      const list = document.getElementById('itineraryTripsList');
+      if (!modal || !list) return;
+
+      list.innerHTML = '<li>Loading your trips...</li>';
+      modal.style.display = 'block';
+
+      try {
+        const response = await fetch('/get-trips');
+        const data = await response.json();
+
+        if (data.status === 'success' && data.trips && data.trips.length > 0) {
+          list.innerHTML = ''; // clear
+          data.trips.forEach(trip => {
+             // We need trips that have valid geo coords and days
+             const days = Math.max(1, Math.ceil((new Date(trip.end_date) - new Date(trip.start_date)) / (1000 * 60 * 60 * 24)));
+             
+             const li = document.createElement('li');
+             li.innerHTML = `
+                <div>
+                  <strong>${trip.trip_name}</strong> - ${trip.destination}<br>
+                  <span style="font-size:0.8rem;opacity:0.8;">${days} Days • ₹${trip.budget.toLocaleString()}</span>
+                </div>
+                <button type="button" 
+                  onclick="if(window.App && window.App.Itinerary) App.Itinerary.generateTimeline(${trip.latitude}, ${trip.longitude}, ${days}, '${trip.destination.replace(/'/g, "\\'")}')" 
+                  style="border-radius:20px; padding: 5px 15px; font-size: 0.9rem;">
+                  Build Itinerary
+                </button>
+             `;
+             list.appendChild(li);
+          });
+        } else {
+          list.innerHTML = '<li>No trips found. Please "Plan a Trip" and save it first!</li>';
+        }
+      } catch (err) {
+        console.error("fetch trips error:", err);
+        list.innerHTML = '<li>Error loading trips. Check console.</li>';
+      }
+    },
+    
+    closeSelector: function() {
+      const m = document.getElementById('itinerarySelectorModal');
+      if (m) m.style.display = 'none';
+    },
+
+    generateTimeline: async function(lat, lon, days, destinationName) {
+      this.closeSelector();
+      
+      const modal = document.getElementById('itineraryDisplayModal');
+      const container = document.getElementById('itinerary-container');
+      const subtitle = document.getElementById('itinerary-subtitle');
+      if (!modal || !container) return;
+
+      subtitle.innerText = `Generating AI Timeline for ${destinationName}...`;
+      container.innerHTML = `
+        <div style="text-align:center; padding: 40px 0;">
+            <div style="font-size: 2rem; animation: pulse 1.5s infinite;">⏳</div>
+            <p style="margin-top: 15px; color: #666;">Reading Wikipedia Geodata...</p>
+        </div>
+      `;
+      modal.style.display = 'block';
+
+      try {
+        const response = await fetch(`/api/itinerary-generator?lat=${lat}&lon=${lon}&days=${days}`);
+        const data = await response.json();
+
+        if (data.status !== 'success') {
+           container.innerHTML = `<p style="color:red; text-align:center;">${data.message}</p>`;
+           return;
+        }
+
+        subtitle.innerText = `${days}-Day Itinerary strictly fetching ${data.total_places} popular landmarks.`;
+        container.innerHTML = ''; // clear loading
+
+        data.itinerary.forEach(day => {
+           let html = `
+              <div class="timeline-day">
+                  <h3>Day ${day.day} Highlights</h3>
+                  <div class="timeline">
+           `;
+           day.activities.forEach(act => {
+              const imgTag = act.image ? `<img src="${act.image}" class="timeline-img" alt="${act.title}">` : `<div class="timeline-img" style="display:flex;align-items:center;justify-content:center;background:#fca311;color:white;font-weight:bold;font-size:1.5rem;">${act.title.charAt(0)}</div>`;
+              html += `
+                  <div class="timeline-item">
+                     ${imgTag}
+                     <div class="timeline-content">
+                        <h4>${act.title}</h4>
+                        <p>${act.summary}</p>
+                        <a href="https://www.google.com/maps/search/?api=1&query=${act.lat},${act.lon}" target="_blank" class="timeline-link">
+                           <i class="fas fa-map-marked-alt"></i> View on Map
+                        </a>
+                     </div>
+                  </div>
+              `;
+           });
+           html += `</div></div>`;
+           container.innerHTML += html;
+        });
+
+      } catch(err) {
+        console.error(err);
+        container.innerHTML = `<p style="color:red;text-align:center;">Failed to connect to the itinerary engine.</p>`;
+      }
+    },
+    
+    closeDisplay: function() {
+      const m = document.getElementById('itineraryDisplayModal');
+      if (m) m.style.display = 'none';
     }
   }
 };
