@@ -7,8 +7,8 @@ __pycache__/
 users.db
 instance/
 
-# ML model grids (large files — auto-generated on startup via train_models.py)
-models/
+# ML model grids (auto-generated on startup via train_models.py, but now committed since they are small RF models)
+# models/
 
 # Environment variables (never commit secrets)
 .env

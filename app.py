@@ -10,14 +10,14 @@ from ml_eta import eta_model        # same — lazy-reload kicks in on first pre
 
 # ── Safety: train missing grids in background, then reload singletons ─────────
 def _ensure_models():
-    budget_path = os.path.join('models', 'budget_grid.json')
+    budget_path = os.path.join('models', 'budget_rf.pkl')
     eta_path    = os.path.join('models', 'eta_grid.json')
     if not os.path.exists(budget_path) or not os.path.exists(eta_path):
-        print("[ML] Grids missing — training in background (app stays live)...")
-        from train_models import generate_budget_grid, generate_eta_grid
+        print("[ML] Models missing — training in background (app stays live)...")
+        from train_models import train_budget_ml_model, generate_eta_grid
         os.makedirs('models', exist_ok=True)
         if not os.path.exists(budget_path):
-            generate_budget_grid()
+            train_budget_ml_model()
         if not os.path.exists(eta_path):
             generate_eta_grid()
         # Hot-reload the singletons so they're immediately usable
