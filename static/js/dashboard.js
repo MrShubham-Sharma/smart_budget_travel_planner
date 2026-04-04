@@ -894,13 +894,46 @@ Total Estimated Budget: ₹${estimatedBudget}
       const listEl = App.Elements.liveTrackTripsList;
       if (!listEl) return;
       listEl.innerHTML = "";
-      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
       App.State.allTrips.forEach(trip => {
           const li = document.createElement("li");
           li.style.cursor = "pointer";
-          li.style.padding = "10px";
-          li.style.borderBottom = "1px solid #ddd";
-          li.innerHTML = `<strong>${App.Util.escapeHtml(trip.trip_name)}</strong> - ${App.Util.escapeHtml(trip.destination)}`;
+          li.style.padding = "12px";
+          li.style.borderBottom = "1px solid rgba(255,255,255,0.1)";
+
+          // Work out trip status relative to today
+          const startDate  = trip.start_date ? new Date(trip.start_date) : null;
+          const endDate    = trip.end_date   ? new Date(trip.end_date)   : null;
+          let statusBadge  = '';
+          let statusWarn   = '';
+
+          if (startDate) {
+              startDate.setHours(0, 0, 0, 0);
+              if (endDate) endDate.setHours(0, 0, 0, 0);
+
+              const daysToStart = Math.ceil((startDate - today) / 86400000);
+
+              if (daysToStart > 0) {
+                  // Future trip
+                  statusBadge = `<span style="background:#f59e0b;color:#000;border-radius:4px;padding:1px 6px;font-size:0.75rem;margin-left:6px;">In ${daysToStart}d</span>`;
+                  statusWarn  = `<div style="color:#f59e0b;font-size:0.78rem;margin-top:3px;">⚠️ Trip starts ${startDate.toDateString()} — ETA will reflect the planned travel date.</div>`;
+              } else if (endDate && today > endDate) {
+                  // Past trip
+                  statusBadge = `<span style="background:#ef4444;color:#fff;border-radius:4px;padding:1px 6px;font-size:0.75rem;margin-left:6px;">Past</span>`;
+                  statusWarn  = `<div style="color:#ef4444;font-size:0.78rem;margin-top:3px;">⚠️ This trip ended on ${endDate.toDateString()}. ETA uses today's time.</div>`;
+              } else {
+                  // Active / ongoing trip
+                  statusBadge = `<span style="background:#22c55e;color:#000;border-radius:4px;padding:1px 6px;font-size:0.75rem;margin-left:6px;">Active ✓</span>`;
+              }
+          }
+
+          const dateLabel = startDate ? `<small style="opacity:0.7;"> | 📅 ${startDate.toDateString()}</small>` : '';
+          li.innerHTML = `
+              <div><strong>${App.Util.escapeHtml(trip.trip_name)}</strong>${statusBadge} &mdash; ${App.Util.escapeHtml(trip.destination)}${dateLabel}</div>
+              ${statusWarn}
+          `;
           li.onclick = () => {
               this.closeTripSelector();
               this.startLiveTracking(trip);
@@ -1004,42 +1037,60 @@ Total Estimated Budget: ₹${estimatedBudget}
       }, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
     },
     
-    // Extracted ML ETA function integrating the new Hypercube
+    // ML ETA — uses trip's start_date as travel reference for future trips
     updateMLEta: async function(distanceKm) {
         if (distanceKm <= 0) return;
         try {
-            const now = new Date();
-            const hour = now.getHours();
-            const dayOfWeek = now.getDay();
-            const dayType = (dayOfWeek === 0 || dayOfWeek === 6) ? 'weekend' : 'weekday';
-            
+            // Use trip's planned start_date if it's in the future, else use now
+            const trip = App.State.activeTripForTracking;
+            let referenceTime = new Date(); // default: right now
+
+            if (trip && trip.start_date) {
+                const tripStart = new Date(trip.start_date);
+                tripStart.setHours(8, 0, 0, 0); // Assume 8 AM departure on trip day
+                if (tripStart > new Date()) {
+                    referenceTime = tripStart; // future trip → use planned start
+                }
+            }
+
+            const hour    = referenceTime.getHours();
+            const dayType = (referenceTime.getDay() === 0 || referenceTime.getDay() === 6) ? 'weekend' : 'weekday';
+
             const weatherSelect = document.getElementById('live_weather');
             const weather = weatherSelect ? weatherSelect.value : 'clear';
-            
+
             const res = await fetch('/api/predict-eta', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    distance_km: distanceKm, 
-                    hour_of_day: hour, 
-                    day_type: dayType, 
-                    weather: weather 
+                body: JSON.stringify({
+                    distance_km: distanceKm,
+                    hour_of_day: hour,
+                    day_type:    dayType,
+                    weather:     weather
                 })
             });
             const data = await res.json();
             if (data.status === 'success') {
                 const durationMins = data.duration_minutes;
-                const eta = new Date(Date.now() + durationMins * 60000);
-                
-                // Format explicitly with Date (e.g. 11/12/2026, 04:30 PM)
-                let dateStr = eta.toLocaleDateString([], { month: 'short', day: 'numeric' });
-                let timeStr = eta.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                
-                // We use document.getElementById instead of App.Elements incase caching detached it
+                // Arrival = referenceTime + travel duration
+                const arrival = new Date(referenceTime.getTime() + durationMins * 60000);
+
+                const dateStr = arrival.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
+                const timeStr = arrival.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                // Label: "Planned Arrival" for future trips, "ETA" for live/current
+                const isFuture  = referenceTime > new Date();
+                const label     = isFuture ? '📅 Planned Arrival' : '🚗 ETA';
+                const subLabel  = isFuture
+                    ? `Departs ${referenceTime.toDateString()} at ${referenceTime.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`
+                    : `${Math.ceil(durationMins)} min remaining`;
+
                 if (document.getElementById('route-eta')) {
                     document.getElementById('route-summary').style.display = 'block';
-                    document.getElementById('route-eta').innerHTML = `${timeStr} (${dateStr})
-                                                           <br><span style="color:#aaa; font-size:0.9rem; font-weight: normal;">${Math.ceil(durationMins)} min remaining</span>`;
+                    document.getElementById('route-eta').innerHTML =
+                        `<span style="font-size:0.8rem;opacity:0.7;">${label}</span><br>
+                         <strong>${timeStr}</strong> &nbsp;<span style="opacity:0.8;">(${dateStr})</span>
+                         <br><span style="color:#aaa;font-size:0.85rem;font-weight:normal;">${subLabel}</span>`;
                 }
             }
         } catch(e) { console.error("ML ETA failed", e); }
