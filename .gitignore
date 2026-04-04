@@ -1,0 +1,18 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Local database (never commit)
+users.db
+instance/
+
+# ML model grids (large files — auto-generated on startup via train_models.py)
+models/
+
+# Environment variables (never commit secrets)
+.env
+
+# OS junk
+.DS_Store
+Thumbs.db

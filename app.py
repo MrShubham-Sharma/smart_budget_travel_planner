@@ -1,9 +1,23 @@
 import os
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from werkzeug.security import generate_password_hash, check_password_hash
-import database  # Your enhanced database.py
-import config    # Our new config file
-from ml_budget import budget_model # Our new Pure-Python ML Budget Estimator
+import database
+import config
+
+# ── Auto-train ML models if grid files are missing (first deploy on Render) ──
+_budget_grid = os.path.join('models', 'budget_grid.json')
+_eta_grid    = os.path.join('models', 'eta_grid.json')
+if not os.path.exists(_budget_grid) or not os.path.exists(_eta_grid):
+    print("[ML] Model grids not found — auto-training now (one-time, ~15s)...")
+    from train_models import generate_budget_grid, generate_eta_grid
+    os.makedirs('models', exist_ok=True)
+    if not os.path.exists(_budget_grid):
+        generate_budget_grid()
+    if not os.path.exists(_eta_grid):
+        generate_eta_grid()
+    print("[ML] Auto-training complete.")
+
+from ml_budget import budget_model  # Load AFTER ensuring grid exists
 
 app = Flask(__name__)
 # Load configuration from config.py
