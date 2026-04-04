@@ -64,57 +64,125 @@ def generate_eta_grid():
 
 def generate_budget_grid():
     budget_db = {}
-    print("Initiating Deep Training on Advanced Budget Hypercube...")
-    print("Mapping Every Metric: Days, Group Size, Style, Food, Season, Booking Window...")
-    
-    # 60 x 20 x 4 x 3 x 4 x 3 = 172,800 combinations
-    days_range = range(1, 61)
-    groups = range(1, 21)
-    styles = ['budget', 'mid-range', 'mid', 'luxury']
-    foods = ['street', 'casual', 'fine']
-    seasons = ['peak', 'off-peak', 'shoulder', 'holiday']
+    print("Initiating Deep Training on Advanced Budget Hypercube (v2 — with Stay Type)...")
+    print("Mapping Every Metric: Days, Group Size, Style, Food, Season, Booking, Stay Type...")
+
+    # ── NEW: Per-night accommodation cost per person (INR) ──────────────────
+    # These are the *base* nightly rates per person.
+    # Season multiplier and booking multiplier still apply on top.
+    STAY_NIGHTLY_BASE = {
+        'hostel':        500,    # Dorm bunk, shared room
+        'camping':       700,    # Tent camping, basic facilities
+        'dharamshala':   300,    # Pilgrim rest house, very cheap
+        'ashram':        250,    # Yoga / spiritual retreat
+        'guesthouse':    1100,   # Simple B&B / guesthouse
+        'budget_hotel':  1400,   # OYO / economy hotel
+        'homestay':      1600,   # Host family, local immersion
+        'heritage_hotel':3000,   # Haveli / restored heritage property
+        '3star_hotel':   2800,   # Standard 3-star hotel
+        'resort':        5500,   # Beach / hill resort
+        '5star_hotel':   11000,  # Luxury 5-star property
+        'houseboat':     7000,   # Kerala backwater houseboat
+        'treehouse':     4500,   # Wayanad / jungle treehouse
+        'desert_camp':   4000,   # Jaisalmer / Spiti desert tent camp
+        'tent_resort':   3500,   # Rann of Kutch themed tent city
+    }
+
+    # The non-accommodation daily spend (food + local transport + misc) per person
+    # These are also season- and style-adjusted but NOT stay-type-adjusted
+    NON_STAY_DAILY = {
+        'budget':    700,   # street food + shared auto
+        'mid-range': 1400,  # casual restaurant + Ola/Uber
+        'mid':       1400,
+        'luxury':    5000,  # fine dining + private cab
+    }
+
+    # ── Dimensions ─────────────────────────────────────────────────────────
+    days_range      = range(1, 61)
+    groups          = range(1, 21)
+    styles          = list(NON_STAY_DAILY.keys())           # 4 styles
+    foods           = ['street', 'casual', 'fine']          # 3 food types
+    seasons         = ['peak', 'off-peak', 'shoulder', 'holiday']
     booking_windows = ['last-minute', 'normal', 'advance']
-    
-    total_combinations = len(days_range) * len(groups) * len(styles) * len(foods) * len(seasons) * len(booking_windows)
-    
+    stay_types      = list(STAY_NIGHTLY_BASE.keys())        # 15 stay types
+
+    food_mult    = {'street': 0.7, 'casual': 1.0, 'fine': 1.8}
+    season_mult  = {'peak': 1.4, 'off-peak': 0.8, 'shoulder': 1.0, 'holiday': 1.8}
+    booking_mult = {'last-minute': 1.3, 'normal': 1.0, 'advance': 0.8}
+    # Booking discount applies to accommodation only (flights/hotels booked later are pricier)
+
+    total_combinations = (
+        len(days_range) * len(groups) * len(styles) * len(foods) *
+        len(seasons) * len(booking_windows) * len(stay_types)
+    )
+    print(f"Total unique budget pathways to compute: {total_combinations:,}")
+
     count = 0
     start_time = time.time()
-    
-    style_base = {'budget': 1500, 'mid-range': 3500, 'mid': 3500, 'luxury': 15000}
-    food_mult = {'street': 0.7, 'casual': 1.0, 'fine': 1.8}
-    season_mult = {'peak': 1.4, 'off-peak': 0.8, 'shoulder': 1.0, 'holiday': 1.8}
-    booking_mult = {'last-minute': 1.4, 'normal': 1.0, 'advance': 0.75}
-    
+
     for d in days_range:
         if d % 15 == 0:
-             print(f"Training Progress: [{str(d).zfill(2)} / 60 Trip Days] ... {(count/total_combinations)*100:.1f}%")
+            pct = (count / total_combinations) * 100
+            print(f"Training Progress: [{str(d).zfill(2)} / 60 Trip Days] ... {pct:.1f}%")
         str_d = str(d)
         budget_db[str_d] = {}
-        duration_discount = 0.8 if d > 14 else (0.9 if d >= 7 else 1.0)
-        
+        # Longer stays = small nightly discount (loyalty / weekly rates)
+        duration_discount = 0.82 if d > 14 else (0.91 if d >= 7 else 1.0)
+
         for g in groups:
             str_g = str(g)
             budget_db[str_d][str_g] = {}
-            group_discount = 0.65 if g >= 10 else (0.85 if g >= 4 else 1.0)
-            
+            # Larger groups share accommodation → per-person cost drops
+            group_discount = 0.65 if g >= 10 else (0.80 if g >= 4 else 1.0)
+
             for s in styles:
                 budget_db[str_d][str_g][s] = {}
-                base_rate = style_base[s]
-                
+                non_stay_daily_pp = NON_STAY_DAILY[s]  # non-accommodation daily spend
+
                 for f in foods:
                     budget_db[str_d][str_g][s][f] = {}
-                    
+                    food_factor = food_mult[f]
+
                     for season in seasons:
                         budget_db[str_d][str_g][s][f][season] = {}
-                        
+                        s_mult = season_mult[season]
+
                         for b in booking_windows:
-                            daily = base_rate * food_mult[f] * season_mult[season] * duration_discount * group_discount * booking_mult[b]
-                            budget_db[str_d][str_g][s][f][season][b] = round(daily * d * g, 2)
-                            count += 1
-                            
+                            budget_db[str_d][str_g][s][f][season][b] = {}
+                            b_mult = booking_mult[b]
+
+                            for st in stay_types:
+                                # ── Per-person nightly accommodation cost ──
+                                nightly_pp = (
+                                    STAY_NIGHTLY_BASE[st]
+                                    * s_mult          # peak / off-peak season
+                                    * b_mult          # booking window
+                                    * duration_discount
+                                )
+
+                                # ── Per-person non-stay daily cost ──
+                                daily_non_stay_pp = (
+                                    non_stay_daily_pp
+                                    * food_factor
+                                    * s_mult
+                                )
+
+                                # ── Total for the ENTIRE trip (all persons) ──
+                                total = round(
+                                    (nightly_pp + daily_non_stay_pp)
+                                    * d          # number of nights
+                                    * g          # number of people
+                                    * group_discount,
+                                    2
+                                )
+                                budget_db[str_d][str_g][s][f][season][b][st] = total
+                                count += 1
+
+    os.makedirs('models', exist_ok=True)
     with open('models/budget_grid.json', 'w') as f:
         json.dump(budget_db, f)
-    print(f"Successfully Trained {count} Unique Budget Pathways in {round(time.time() - start_time, 2)}s\n")
+    elapsed = round(time.time() - start_time, 2)
+    print(f"Successfully Trained {count:,} Unique Budget Pathways in {elapsed}s\n")
 
 if __name__ == "__main__":
     generate_eta_grid()

@@ -12,7 +12,7 @@ USE_SQLITE_FALLBACK = not bool(DATABASE_URL)
 if USE_SQLITE_FALLBACK:
     import sqlite3
     DB_PATH = os.path.join(os.path.dirname(__file__), 'users.db')
-    print("[DB] No DATABASE_URL found - using local SQLite fallback.")
+    print("[DB] Local development mode: using SQLite database.")
 else:
     try:
         import psycopg2
