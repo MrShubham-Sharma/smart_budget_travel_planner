@@ -34,6 +34,15 @@ TRANSPORT_DAILY_PP = {
 
 import pandas as pd
 import joblib
+import warnings
+
+# Suppress sklearn InconsistentVersionWarning from joblib loading
+warnings.filterwarnings("ignore", category=UserWarning)
+try:
+    import sklearn
+    warnings.filterwarnings("ignore", module="sklearn")
+except Exception:
+    pass
 
 class HypercubeBudgetEngine:
     """
