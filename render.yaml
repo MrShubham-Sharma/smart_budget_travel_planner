@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: smart_budget_travel_planner
+    runtime: python
+    buildCommand: "pip install -r requirements.txt && python train_models.py"
+    startCommand: "gunicorn app:app"
+    envVars:
+      - key: FLASK_DEBUG
+        value: "0"

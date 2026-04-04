@@ -1,23 +1,30 @@
 import os
+import threading
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from werkzeug.security import generate_password_hash, check_password_hash
 import database
 import config
 
-# ── Auto-train ML models if grid files are missing (first deploy on Render) ──
-_budget_grid = os.path.join('models', 'budget_grid.json')
-_eta_grid    = os.path.join('models', 'eta_grid.json')
-if not os.path.exists(_budget_grid) or not os.path.exists(_eta_grid):
-    print("[ML] Model grids not found — auto-training now (one-time, ~15s)...")
-    from train_models import generate_budget_grid, generate_eta_grid
-    os.makedirs('models', exist_ok=True)
-    if not os.path.exists(_budget_grid):
-        generate_budget_grid()
-    if not os.path.exists(_eta_grid):
-        generate_eta_grid()
-    print("[ML] Auto-training complete.")
+# ── Ensure ML model grids exist (trained during build via render.yaml) ────────
+# Safety fallback: if grids are somehow missing, train in background thread
+# so the app doesn't block/timeout on startup.
+def _ensure_models():
+    budget_path = os.path.join('models', 'budget_grid.json')
+    eta_path    = os.path.join('models', 'eta_grid.json')
+    if not os.path.exists(budget_path) or not os.path.exists(eta_path):
+        print("[ML] Grids missing — training in background (app stays live)...")
+        from train_models import generate_budget_grid, generate_eta_grid
+        os.makedirs('models', exist_ok=True)
+        if not os.path.exists(budget_path):
+            generate_budget_grid()
+        if not os.path.exists(eta_path):
+            generate_eta_grid()
+        print("[ML] Background training complete.")
 
-from ml_budget import budget_model  # Load AFTER ensuring grid exists
+threading.Thread(target=_ensure_models, daemon=True).start()
+
+from ml_budget import budget_model  # Loads from disk (ready after build)
+
 
 app = Flask(__name__)
 # Load configuration from config.py
