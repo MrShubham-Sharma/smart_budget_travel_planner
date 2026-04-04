@@ -1238,8 +1238,8 @@ const App = {
         const res = await fetch(wikiUrl);
         const data = await res.json();
         const rawPlaces = data?.query?.geosearch || [];
-        // Forcefully filter out generic residential zones, colonies, transit stops, and administrative zones
-        const blacklist = /colony|residential|society|apartment|phase\s*\d|sector\s*\d|layout|cross|taluka|tehsil|mandal|district/i;
+        // Forcefully filter out generic residential zones, colonies, transit stops, administrative zones, and academic institutions!
+        const blacklist = /colony|residential|society|apartment|phase\s*\d|sector\s*\d|layout|cross|taluka|tehsil|mandal|district|school|college|institute|university|academy/i;
         places = rawPlaces.filter(p => !blacklist.test(p.title));
       } catch (err) {
         console.error('Wikipedia Geosearch failed:', err);

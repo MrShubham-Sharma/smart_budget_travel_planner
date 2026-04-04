@@ -1704,7 +1704,11 @@ def get_itinerary_generator():
         places = geo_res.get('query', {}).get('geosearch', [])
         
         import re
-        blacklist_pattern = re.compile(r'colony|residential|society|apartment|phase\s*\d|sector\s*\d|layout|cross|taluka|tehsil|mandal|district', re.IGNORECASE)
+        blacklist_pattern = re.compile(
+            r'colony|residential|society|apartment|phase\s*\d|sector\s*\d|layout|cross|taluka|tehsil|mandal|district|'
+            r'school|college|institute|university|academy', 
+            re.IGNORECASE
+        )
         
         filtered_places = [p for p in places if not blacklist_pattern.search(p.get('title', ''))]
         
