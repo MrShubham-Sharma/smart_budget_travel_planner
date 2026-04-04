@@ -1698,7 +1698,10 @@ const App = {
     openSelector: async function() {
       const modal = document.getElementById('itinerarySelectorModal');
       const list = document.getElementById('itineraryTripsList');
-      if (!modal || !list) return;
+      if (!modal || !list) {
+          alert("Error: Itinerary modal elements are missing from HTML. Please refresh your browser with Ctrl+Shift+R!");
+          return;
+      }
 
       list.innerHTML = '<li>Loading your trips...</li>';
       modal.style.display = 'block';

@@ -70,7 +70,7 @@
       </div>
 
       <!-- 6. Itineraries (NEW) -->
-      <div class="glass-card card option-card" data-action="itinerary" onclick="if(window.App && window.App.Itinerary) App.Itinerary.openSelector()">
+      <div class="glass-card card option-card" data-action="itinerary" style="cursor: pointer;" onclick="if(window.App && window.App.Itinerary) App.Itinerary.openSelector()">
         <div class="glass-icon"><i class="fas fa-calendar-alt"></i></div>
         <h3>Trip Itineraries</h3>
         <p>Generate daily smart itineraries.</p>
@@ -506,8 +506,8 @@
   })();
   </script>
 
-  <script src="{{ url_for('static', filename='js/chatbot.js') }}?v=2.1"></script>
-  <script src="{{ url_for('static', filename='js/dashboard.js') }}?v=2.1"></script>
+  <script src="{{ url_for('static', filename='js/chatbot.js') }}?v=3.2"></script>
+  <script src="{{ url_for('static', filename='js/dashboard.js') }}?v=3.2"></script>
   <!-- Floating Terms & Conditions Link -->
   <div style="position: fixed; bottom: 10px; left: 15px; font-size: 0.75rem; z-index: 1000;">
       <a href="#" onclick="alert('Terms & Conditions:\n\n1. This app provides travel estimations using machine learning. Do not rely exclusively on this for critical timing.\n2. We are not liable for delayed trips or inaccurate Overpass API geographic data.\n3. Stay safe and enjoy your travels!')" style="color: rgba(255,255,255,0.6); text-decoration: none; font-family: 'Inter', sans-serif;">
