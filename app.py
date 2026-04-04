@@ -1703,10 +1703,15 @@ def get_itinerary_generator():
         geo_res = requests.get(search_url, headers=headers, timeout=5).json()
         places = geo_res.get('query', {}).get('geosearch', [])
         
-        if not places:
+        import re
+        blacklist_pattern = re.compile(r'colony|residential|society|apartment|phase\s*\d|sector\s*\d|layout|cross|taluka|tehsil|mandal|district', re.IGNORECASE)
+        
+        filtered_places = [p for p in places if not blacklist_pattern.search(p.get('title', ''))]
+        
+        if not filtered_places:
             return jsonify({"status": "error", "message": "No famous activities found in Wikipedia around this location."})
             
-        page_ids = [str(p['pageid']) for p in places]
+        page_ids = [str(p['pageid']) for p in filtered_places]
         places_data = []
         
         # 2. Fetch extracts & thumbnails efficiently in one batch query

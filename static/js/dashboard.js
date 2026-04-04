@@ -1237,7 +1237,10 @@ const App = {
       try {
         const res = await fetch(wikiUrl);
         const data = await res.json();
-        places = data?.query?.geosearch || [];
+        const rawPlaces = data?.query?.geosearch || [];
+        // Forcefully filter out generic residential zones, colonies, transit stops, and administrative zones
+        const blacklist = /colony|residential|society|apartment|phase\s*\d|sector\s*\d|layout|cross|taluka|tehsil|mandal|district/i;
+        places = rawPlaces.filter(p => !blacklist.test(p.title));
       } catch (err) {
         console.error('Wikipedia Geosearch failed:', err);
       }
