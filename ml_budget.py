@@ -13,25 +13,38 @@ class HypercubeBudgetEngine:
     N-Dimensional Budget Hypercube Inference Engine (v2).
     Dimensions: days × group_size × travel_style × food_type × season × booking × stay_type
     """
+    GRID_PATH = 'models/budget_grid.json'
+
     def __init__(self):
         self.grid = {}
         self.day_bins = []
+        self._load()
+
+    def _load(self):
+        """Try to load the grid from disk. Safe to call multiple times."""
         try:
-            with open('models/budget_grid.json', 'r') as f:
+            with open(self.GRID_PATH, 'r') as f:
                 self.grid = json.load(f)
             self.day_bins = sorted([int(k) for k in self.grid.keys()])
             print("Loaded Budget Hypercube v2 parameters successfully.")
         except Exception as e:
             print("Error: Budget Hypercube missing or incompatible.", e)
+            self.grid = {}
+            self.day_bins = []
 
     def predict(self, days, travel_style="mid", food_type="casual",
                 group_size=1, season="shoulder", booking="normal",
                 stay_type="budget_hotel"):
         if days <= 0:
             return 0.0
+
+        # Lazy-reload if grid was missing at startup but is now trained
         if not self.grid:
-            # Fallback when model file is absent
-            return 1500 * days * group_size
+            self._load()
+
+        if not self.grid:
+            # Still missing — return a safe fallback estimate
+            return round(1500 * days * group_size, 2)
 
         # ── Nearest-neighbour day discretisation ──────────────────────────
         closest_day = min(self.day_bins, key=lambda x: abs(x - days))
@@ -57,7 +70,6 @@ class HypercubeBudgetEngine:
 
         st = stay_type.lower().strip()
         if st not in VALID_STAY_TYPES:
-            # Map legacy / frontend values gracefully
             _aliases = {
                 'budget':   'budget_hotel',
                 'mid':      '3star_hotel',

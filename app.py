@@ -5,9 +5,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import database
 import config
 
-# ── Ensure ML model grids exist (trained during build via render.yaml) ────────
-# Safety fallback: if grids are somehow missing, train in background thread
-# so the app doesn't block/timeout on startup.
+from ml_budget import budget_model  # may load empty if grids not yet built
+from ml_eta import eta_model        # same — lazy-reload kicks in on first predict()
+
+# ── Safety: train missing grids in background, then reload singletons ─────────
 def _ensure_models():
     budget_path = os.path.join('models', 'budget_grid.json')
     eta_path    = os.path.join('models', 'eta_grid.json')
@@ -19,11 +20,12 @@ def _ensure_models():
             generate_budget_grid()
         if not os.path.exists(eta_path):
             generate_eta_grid()
-        print("[ML] Background training complete.")
+        # Hot-reload the singletons so they're immediately usable
+        budget_model._load()
+        eta_model._load()
+        print("[ML] Background training complete — models live.")
 
 threading.Thread(target=_ensure_models, daemon=True).start()
-
-from ml_budget import budget_model  # Loads from disk (ready after build)
 
 
 app = Flask(__name__)
