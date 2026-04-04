@@ -89,26 +89,37 @@ def generate_budget_grid():
     }
 
     # The non-accommodation daily spend (food + local transport + misc) per person
-    # These are also season- and style-adjusted but NOT stay-type-adjusted
-    NON_STAY_DAILY = {
-        'budget':    700,   # street food + shared auto
-        'mid-range': 1400,  # casual restaurant + Ola/Uber
-        'mid':       1400,
-        'luxury':    5000,  # fine dining + private cab
+    # ── Food type: realistic daily per-person meal costs (INR) ────────────────
+    # Each value = total food spend per person per day (breakfast+lunch+dinner)
+    FOOD_DAILY_COST = {
+        'veg_thali':    300,   # Veg thali at local dhabas (₹80-100/meal x 3)
+        'nonveg_thali': 450,   # Non-veg thali + egg dishes (₹120-160/meal x 3)
+        'local_cuisine':600,   # Regional specialties (Pav bhaji, Biryani, Dal Baati etc)
+        'dhaba':        250,   # Highway dhaba style — roti, sabzi, chai (cheapest)
+        'restaurant':   900,   # Sit-down restaurant with full meals + dessert
+        'hotel_buffet': 1600,  # Hotel buffet / spread — all-inclusive luxury meals
     }
 
     # ── Dimensions ─────────────────────────────────────────────────────────
     days_range      = range(1, 61)
     groups          = range(1, 21)
-    styles          = list(NON_STAY_DAILY.keys())           # 4 styles
-    foods           = ['street', 'casual', 'fine']          # 3 food types
+    styles          = ['budget', 'mid-range', 'mid', 'luxury']  # travel style
+    foods           = list(FOOD_DAILY_COST.keys())              # 6 real food types
     seasons         = ['peak', 'off-peak', 'shoulder', 'holiday']
     booking_windows = ['last-minute', 'normal', 'advance']
     stay_types      = list(STAY_NIGHTLY_BASE.keys())        # 15 stay types
 
-    food_mult    = {'street': 0.7, 'casual': 1.0, 'fine': 1.8}
+    # Local transport per person per day (auto/cab/bus depending on style)
+    TRANSPORT_DAILY_PP = {
+        'budget':    350,   # Shared auto, state bus, local trains
+        'mid-range': 700,   # Ola/Uber + occasional auto
+        'mid':       700,
+        'luxury':   2500,   # Private cab, rental car
+    }
+
     season_mult  = {'peak': 1.4, 'off-peak': 0.8, 'shoulder': 1.0, 'holiday': 1.8}
     booking_mult = {'last-minute': 1.3, 'normal': 1.0, 'advance': 0.8}
+
     # Booking discount applies to accommodation only (flights/hotels booked later are pricier)
 
     total_combinations = (
@@ -137,11 +148,13 @@ def generate_budget_grid():
 
             for s in styles:
                 budget_db[str_d][str_g][s] = {}
-                non_stay_daily_pp = NON_STAY_DAILY[s]  # non-accommodation daily spend
+                # Local transport cost per person per day (style-based)
+                transport_daily_pp = TRANSPORT_DAILY_PP[s]
 
                 for f in foods:
                     budget_db[str_d][str_g][s][f] = {}
-                    food_factor = food_mult[f]
+                    # Food cost is now directly from FOOD_DAILY_COST, season-adjusted
+                    raw_food_daily = FOOD_DAILY_COST[f]
 
                     for season in seasons:
                         budget_db[str_d][str_g][s][f][season] = {}
@@ -155,22 +168,21 @@ def generate_budget_grid():
                                 # ── Per-person nightly accommodation cost ──
                                 nightly_pp = (
                                     STAY_NIGHTLY_BASE[st]
-                                    * s_mult          # peak / off-peak season
-                                    * b_mult          # booking window
+                                    * s_mult
+                                    * b_mult
                                     * duration_discount
                                 )
 
-                                # ── Per-person non-stay daily cost ──
-                                daily_non_stay_pp = (
-                                    non_stay_daily_pp
-                                    * food_factor
-                                    * s_mult
-                                )
+                                # ── Per-person food cost (season affects prices) ──
+                                food_daily_pp = raw_food_daily * s_mult
+
+                                # ── Local transport per person per day ──
+                                transport_pp = transport_daily_pp * s_mult
 
                                 # ── Total for the ENTIRE trip (all persons) ──
                                 total = round(
-                                    (nightly_pp + daily_non_stay_pp)
-                                    * d          # number of nights
+                                    (nightly_pp + food_daily_pp + transport_pp)
+                                    * d          # number of nights/days
                                     * g          # number of people
                                     * group_discount,
                                     2

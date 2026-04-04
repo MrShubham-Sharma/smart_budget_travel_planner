@@ -1,11 +1,17 @@
 import json
 
-# All stay types the model knows about (must match train_models.py STAY_NIGHTLY_BASE)
+# All stay types the model knows about (must match train_models.py)
 VALID_STAY_TYPES = [
     'hostel', 'camping', 'dharamshala', 'ashram', 'guesthouse',
     'budget_hotel', 'homestay', 'heritage_hotel', '3star_hotel',
     'resort', '5star_hotel', 'houseboat', 'treehouse',
     'desert_camp', 'tent_resort',
+]
+
+# All food types (must match train_models.py FOOD_DAILY_COST)
+VALID_FOOD_TYPES = [
+    'veg_thali', 'nonveg_thali', 'local_cuisine',
+    'dhaba', 'restaurant', 'hotel_buffet',
 ]
 
 class HypercubeBudgetEngine:
@@ -57,8 +63,13 @@ class HypercubeBudgetEngine:
             style = 'mid'
 
         food = food_type.lower()
-        if food not in ['street', 'casual', 'fine']:
-            food = 'casual'
+        if food not in VALID_FOOD_TYPES:
+            _food_aliases = {
+                'street': 'dhaba', 'casual': 'local_cuisine', 'fine': 'restaurant',
+                'veg': 'veg_thali', 'nonveg': 'nonveg_thali', 'non-veg': 'nonveg_thali',
+                'buffet': 'hotel_buffet', 'thali': 'veg_thali',
+            }
+            food = _food_aliases.get(food, 'local_cuisine')
 
         s = season.lower()
         if s not in ['peak', 'off-peak', 'shoulder', 'holiday']:

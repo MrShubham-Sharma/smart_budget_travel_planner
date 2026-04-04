@@ -80,9 +80,9 @@ const App = {
         });
     });
 
-    // Modal closing (overlay clicks)
+    // Modal closing (overlay clicks) — tripPlannerModal deliberately excluded
+    // so users don't lose their form data by accidentally clicking outside
     window.addEventListener('click', (event) => {
-      if (event.target === this.Elements.tripPlannerModal) this.Trip.closeTripPlanner();
       if (event.target === this.Elements.myTripsModal) this.Trip.closeMyTripsModal();
       if (event.target === this.Elements.budgetTrackerModal) this.Budget.closeBudgetTracker();
       if (event.target === this.Elements.chatbotModal) this.Chatbot.close();
@@ -592,13 +592,29 @@ const App = {
     },
     
     estimateBudget: async function() {
-        const start_date = App.Util.getVal('start_date');
-        const end_date = App.Util.getVal('end_date');
-        const group_size = parseInt(App.Util.getVal('group_size')) || 1;
-        const travel_style = document.querySelector('input[name="travel_style"]:checked')?.value || 'mid';
-        const food_type = document.querySelector('input[name="food_type"]:checked')?.value || 'casual';
-        // FIX: read stay_type from the form radio buttons
-        const stay_type = document.querySelector('input[name="stay_type"]:checked')?.value || 'budget_hotel';
+        const destination = App.Util.getVal('destination');
+        const start_date  = App.Util.getVal('start_date');
+        const end_date    = App.Util.getVal('end_date');
+
+        // ✅ Destination is required before estimating
+        if (!destination || destination.trim() === '') {
+            const destInput = document.getElementById('destination');
+            if (destInput) {
+                destInput.style.border = '2px solid #ef4444';
+                destInput.placeholder = '⚠️ Please enter a destination first!';
+                destInput.focus();
+                setTimeout(() => {
+                    destInput.style.border = '';
+                    destInput.placeholder = 'e.g., Goa, India';
+                }, 3000);
+            }
+            return;
+        }
+
+        const group_size    = parseInt(App.Util.getVal('group_size')) || 1;
+        const travel_style  = document.querySelector('input[name="travel_style"]:checked')?.value || 'mid';
+        const food_type     = document.querySelector('input[name="food_type"]:checked')?.value || 'dhaba';
+        const stay_type     = document.querySelector('input[name="stay_type"]:checked')?.value || 'budget_hotel';
 
         // Calculate days cleanly
         let days = 1;
@@ -637,7 +653,37 @@ const App = {
         }
     },
 
-    
+    // ✅ Clear the trip form back to defaults
+    clearTripForm: function() {
+        ['trip_name', 'destination', 'start_location', 'budget', 'latitude', 'longitude', 'start_lat', 'start_lon']
+            .forEach(id => App.Util.setVal(id, ''));
+        const startDateEl = document.getElementById('start_date');
+        const endDateEl   = document.getElementById('end_date');
+        if (startDateEl) startDateEl.value = '';
+        if (endDateEl)   endDateEl.value   = '';
+
+        // Reset radios to defaults
+        const defaultRadios = {
+            travel_style: 'budget',
+            food_type:    'dhaba',
+            stay_type:    'budget_hotel',
+            traveler_type:'solo'
+        };
+        Object.entries(defaultRadios).forEach(([name, val]) => {
+            const el = document.querySelector(`input[name="${name}"][value="${val}"]`);
+            if (el) el.checked = true;
+        });
+
+        // Reset group size
+        const gsEl = document.getElementById('group_size');
+        if (gsEl) gsEl.value = '1';
+        gsEl?.style && (gsEl.style.display = 'none');
+
+        App.Util.setVal('budget', '');
+        const budgetEl = document.getElementById('budget');
+        if (budgetEl) budgetEl.placeholder = "Click 'Calculate' to estimate";
+    },
+
     openBudgetPlanner: function() {
       if (!App.State.allTrips || App.State.allTrips.length === 0) {
           return App.Util.showModal(`<h3>No Trips Found</h3><p>Please plan a trip first before adding expenses.</p><div class="modal-buttons text-center"><button onclick="App.Util.closeModal()" class="btn-close">Close</button></div>`);
@@ -1676,3 +1722,4 @@ function closeTripPlanner() { App.Trip.closeTripPlanner(); }
 function saveTripEdits() { App.Trip.saveTripEdits(); }
 function closeEditPanel() { App.Trip.closeEditPanel(); }
 function closeMyTripsModal() { App.Trip.closeMyTripsModal(); }
+function clearTripForm() { App.Budget.clearTripForm(); }

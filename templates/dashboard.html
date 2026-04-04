@@ -147,14 +147,20 @@
         </div>
         <div class="form-row">
             <div>
-                <label>Food Type</label>
-                <div class="radio-group">
-                    <input type="radio" id="food_street" name="food_type" value="street" checked>
-                    <label for="food_street">Street Food</label>
-                    <input type="radio" id="food_casual" name="food_type" value="casual">
-                    <label for="food_casual">Casual Dining</label>
-                    <input type="radio" id="food_fine" name="food_type" value="fine">
-                    <label for="food_fine">Fine Dining</label>
+                <label>🍽️ Meal Preference</label>
+                <div class="radio-group" style="flex-wrap:wrap;gap:8px;">
+                    <input type="radio" id="food_dhaba" name="food_type" value="dhaba" checked>
+                    <label for="food_dhaba">🛖 Dhaba</label>
+                    <input type="radio" id="food_veg_thali" name="food_type" value="veg_thali">
+                    <label for="food_veg_thali">🥗 Veg Thali</label>
+                    <input type="radio" id="food_nonveg_thali" name="food_type" value="nonveg_thali">
+                    <label for="food_nonveg_thali">🍗 Non-veg Thali</label>
+                    <input type="radio" id="food_local" name="food_type" value="local_cuisine">
+                    <label for="food_local">🍛 Local Cuisine</label>
+                    <input type="radio" id="food_restaurant" name="food_type" value="restaurant">
+                    <label for="food_restaurant">🍽️ Restaurant</label>
+                    <input type="radio" id="food_buffet" name="food_type" value="hotel_buffet">
+                    <label for="food_buffet">🥘 Hotel Buffet</label>
                 </div>
             </div>
         </div>
@@ -189,6 +195,7 @@
       </div>
       <div class="modal-buttons">
         <button type="button" onclick="addTrip()">Add Trip</button>
+        <button type="button" onclick="clearTripForm()" class="btn-close" style="background: rgba(255,165,0,0.15); border-color: rgba(255,165,0,0.4); color: #ffa500;">🗑️ Clear</button>
         <button type="button" onclick="closeTripPlanner()" class="btn-close">Close</button>
       </div>
       </div>
