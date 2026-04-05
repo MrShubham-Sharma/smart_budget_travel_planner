@@ -1704,7 +1704,7 @@ const App = {
       }
 
       list.innerHTML = '<li>Loading your trips...</li>';
-      modal.style.display = 'block';
+      modal.classList.add('show');
 
       try {
         const response = await fetch('/get-trips');
@@ -1741,7 +1741,7 @@ const App = {
     
     closeSelector: function() {
       const m = document.getElementById('itinerarySelectorModal');
-      if (m) m.style.display = 'none';
+      if (m) m.classList.remove('show');
     },
 
     generateTimeline: async function(lat, lon, days, destinationName) {
@@ -1759,7 +1759,7 @@ const App = {
             <p style="margin-top: 15px; color: #666;">Reading Wikipedia Geodata...</p>
         </div>
       `;
-      modal.style.display = 'block';
+      modal.classList.add('show');
 
       try {
         const response = await fetch(`/api/itinerary-generator?lat=${lat}&lon=${lon}&days=${days}`);
@@ -1806,7 +1806,7 @@ const App = {
     
     closeDisplay: function() {
       const m = document.getElementById('itineraryDisplayModal');
-      if (m) m.style.display = 'none';
+      if (m) m.classList.remove('show');
     }
   }
 };
