@@ -100,6 +100,17 @@ def init_db():
             )
         ''')
 
+        # PostgreSQL migrations (safe to run every time)
+        cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='users'")
+        user_cols = [r[0] for r in cur.fetchall()]
+        if 'is_blocked' not in user_cols:
+            cur.execute("ALTER TABLE users ADD COLUMN is_blocked BOOLEAN DEFAULT FALSE")
+
+        cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='trips'")
+        trip_cols = [r[0] for r in cur.fetchall()]
+        if 'stay_type' not in trip_cols:
+            cur.execute("ALTER TABLE trips ADD COLUMN stay_type TEXT DEFAULT 'budget_hotel'")
+
     else:
         # SQLite fallback (local dev)
         cur.execute('''
