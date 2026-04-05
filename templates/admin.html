@@ -145,6 +145,21 @@
         .log-table th { color: var(--text-muted); font-weight: 600; }
         .log-table tr:hover { background: var(--surface-hover); }
 
+        .btn-sm {
+            padding: 4px 10px;
+            font-size: 0.75rem;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            color: var(--text);
+            transition: 0.2s;
+        }
+        .btn-delete { color: #ef4444; border-color: rgba(239, 68, 68, 0.3); }
+        .btn-delete:hover { background: #ef4444; color: #fff; }
+        .btn-block { color: #f59e0b; border-color: rgba(245, 158, 11, 0.3); }
+        .btn-block:hover { background: #f59e0b; color: #fff; }
+
         .badge {
             display: inline-block;
             padding: 3px 8px;
@@ -240,6 +255,28 @@
         </div>
     </div>
 
+    <!-- User Management Section -->
+    <div class="panel" style="margin-top: 1.5rem;">
+        <h2>👥 User Management & Credentials</h2>
+        <div class="table-wrapper">
+            <table class="log-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>User Details</th>
+                        <th>Password (Hash)</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="users-body">
+                    <!-- JS population -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
     <script>
         async function fetchAdminData() {
             try {
@@ -255,7 +292,6 @@
                 const tbody = document.getElementById('logs-body');
                 tbody.innerHTML = '';
                 data.recent_logs.forEach(log => {
-                    // log = [id, name, email, ip, endpoint, action, time]
                     const tr = document.createElement('tr');
                     let userStr = log[2] ? `<div>${log[2]}</div>` : '';
                     userStr += `<div style="font-size:0.72rem;color:#9ca3af">${log[3]}</div>`;
@@ -265,6 +301,42 @@
                         <td style="color:#9ca3af;font-size:0.8rem;">${log[4]}</td>
                     `;
                     tbody.appendChild(tr);
+                });
+
+                // Populate Users Table
+                const userTbody = document.getElementById('users-body');
+                userTbody.innerHTML = '';
+                data.all_users.forEach(u => {
+                    // u = [id, name, email, password, is_admin, is_blocked]
+                    const tr = document.createElement('tr');
+                    const isAdmin = u[4];
+                    const isBlocked = u[5];
+                    
+                    tr.innerHTML = `
+                        <td>#${u[0]}</td>
+                        <td>
+                            <div style="font-weight:600;">${u[1]}</div>
+                            <div style="font-size:0.75rem;color:#9ca3af;">${u[2]}</div>
+                        </td>
+                        <td>
+                            <div style="font-family:monospace;font-size:0.7rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;color:#6366f1;">
+                                ${u[3]}
+                            </div>
+                        </td>
+                        <td><span class="badge" style="${isAdmin ? 'background:rgba(16,185,129,0.1);color:#10b981;' : ''}">${isAdmin ? 'Admin' : 'User'}</span></td>
+                        <td><span class="badge" style="${isBlocked ? 'background:rgba(239,68,68,0.1);color:#ef4444;' : 'background:rgba(16,185,129,0.1);color:#10b981;'}">
+                            ${isBlocked ? 'Blocked' : 'Active'}</span>
+                        </td>
+                        <td>
+                            <div style="display:flex;gap:5px;">
+                                <button class="btn-sm btn-block" onclick="toggleBlock(${u[0]}, ${!isBlocked})">
+                                    ${isBlocked ? 'Unblock' : 'Block'}
+                                </button>
+                                <button class="btn-sm btn-delete" onclick="deleteUser(${u[0]})">Delete</button>
+                            </div>
+                        </td>
+                    `;
+                    userTbody.appendChild(tr);
                 });
 
                 // Traffic Chart
@@ -294,6 +366,40 @@
                 });
 
             } catch(e) { console.error('Admin Fetch Error', e); }
+        }
+
+        async function toggleBlock(userId, blockStatus) {
+            if(!confirm(`Are you sure you want to ${blockStatus ? 'BLOCK' : 'UNBLOCK'} this user?`)) return;
+            try {
+                const res = await fetch('/api/admin/toggle-block', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({user_id: userId, is_blocked: blockStatus})
+                });
+                const data = await res.json();
+                if(data.status === 'success') {
+                    fetchAdminData();
+                } else {
+                    alert(data.message || 'Action failed');
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        async function deleteUser(userId) {
+            if(!confirm('🚨 WARNING: This will permanently delete the user and all their data. Proceed?')) return;
+            try {
+                const res = await fetch('/api/admin/delete-user', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({user_id: userId})
+                });
+                const data = await res.json();
+                if(data.status === 'success') {
+                    fetchAdminData();
+                } else {
+                    alert(data.message || 'Delete failed');
+                }
+            } catch(e) { console.error(e); }
         }
 
         window.onload = fetchAdminData;

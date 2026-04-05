@@ -100,14 +100,55 @@ def admin_panel():
     if not session.get('is_admin'):
         database.log_activity(session.get('user_id'), request.remote_addr, '/admin', 'UNAUTHORIZED_ADMIN_ATTEMPT')
         return redirect(url_for('dashboard'))
-    return render_template('admin.html')
-
 @app.route('/api/admin-stats')
 def admin_stats_api():
-    """Returns live JSON metrics to fuel the admin chart."""
+    """Returns live JSON metrics & the full user list for the admin panel."""
     if not session.get('is_admin'):
         return jsonify({"status": "error"}), 403
-    return jsonify(database.get_admin_dashboard_metrics())
+    
+    metrics = database.get_admin_dashboard_metrics()
+    metrics['all_users'] = database.get_all_users()
+    return jsonify(metrics)
+
+
+@app.route('/api/admin/delete-user', methods=['POST'])
+def admin_delete_user():
+    """Admin only: deletes a user."""
+    if not session.get('is_admin'):
+        return jsonify({"status": "error", "message": "Unauthorized"}), 403
+    
+    data = request.get_json()
+    user_id = data.get('user_id')
+    
+    # Prevent self-deletion
+    if user_id == session.get('user_id'):
+        return jsonify({"status": "error", "message": "You cannot delete yourself!"}), 400
+        
+    if database.delete_user(user_id):
+        database.log_activity(session.get('user_id'), request.remote_addr, '/admin/delete-user', f'ADMIN_DELETED_USER_ID_{user_id}')
+        return jsonify({"status": "success", "message": "User deleted"})
+    return jsonify({"status": "error", "message": "Failed to delete user"})
+
+
+@app.route('/api/admin/toggle-block', methods=['POST'])
+def admin_toggle_block():
+    """Admin only: blocks/unblocks a user."""
+    if not session.get('is_admin'):
+        return jsonify({"status": "error", "message": "Unauthorized"}), 403
+        
+    data = request.get_json()
+    user_id = data.get('user_id')
+    status = data.get('is_blocked') # True to block, False to unblock
+    
+    # Prevent self-blocking
+    if user_id == session.get('user_id'):
+        return jsonify({"status": "error", "message": "You cannot block yourself!"}), 400
+
+    if database.toggle_block_user(user_id, status):
+        action_name = 'ADMIN_BLOCKED_USER' if status else 'ADMIN_UNBLOCKED_USER'
+        database.log_activity(session.get('user_id'), request.remote_addr, '/admin/toggle-block', f'{action_name}_ID_{user_id}')
+        return jsonify({"status": "success", "message": "Status updated"})
+    return jsonify({"status": "error", "message": "Failed to update status"})
 
 
 @app.route('/logout')
@@ -155,11 +196,19 @@ def login():
     if not email or not password:
         return jsonify({"status": "error", "message": "All fields are required"})
 
-    # SECURITY: Fetch user by email, then check hash
+    # user[0]=id, user[1]=name, user[2]=hashed_pass, user[3]=is_admin
+    # We also need is_blocked, so let's adjust get_user_by_email if needed, 
+    # but wait, get_user_by_email currently returns (id, name, hashed_password, is_admin).
+    # I should update get_user_by_email in database.py to return is_blocked too.
+    
     user = database.get_user_by_email(email)
 
-    # user[0]=id, user[1]=name, user[2]=hashed_pass, user[3]=is_admin
     if user and check_password_hash(user[2], password):
+        # Check if user is blocked
+        # NOTE: I need to update database.get_user_by_email to return the 5th element (is_blocked)
+        if len(user) > 4 and user[4]: 
+            database.log_activity(user[0], request.remote_addr, '/login', 'LOGIN_BLOCKED')
+            return jsonify({"status": "error", "message": "Your account has been blocked by the admin."})
         # Configure Remember Me
         remember = data.get('remember', False)
         if remember:

@@ -59,7 +59,8 @@ def init_db():
                 name     TEXT NOT NULL,
                 email    TEXT UNIQUE NOT NULL,
                 password TEXT NOT NULL,
-                is_admin BOOLEAN DEFAULT FALSE
+                is_admin BOOLEAN DEFAULT FALSE,
+                is_blocked BOOLEAN DEFAULT FALSE
             )
         ''')
 
@@ -107,7 +108,8 @@ def init_db():
                 name     TEXT NOT NULL,
                 email    TEXT UNIQUE NOT NULL,
                 password TEXT NOT NULL,
-                is_admin BOOLEAN DEFAULT 0
+                is_admin BOOLEAN DEFAULT 0,
+                is_blocked BOOLEAN DEFAULT 0
             )
         ''')
         cur.execute('''
@@ -151,6 +153,8 @@ def init_db():
         cols = [r[1] for r in cur.fetchall()]
         if 'is_admin' not in cols:
             cur.execute("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0")
+        if 'is_blocked' not in cols:
+            cur.execute("ALTER TABLE users ADD COLUMN is_blocked BOOLEAN DEFAULT 0")
 
         cur.execute("PRAGMA table_info(trips)")
         trip_cols = [r[1] for r in cur.fetchall()]
@@ -187,20 +191,20 @@ def add_user(name, email, hashed_password):
 
 
 def get_user_by_email(email):
-    """Fetches a user by email. Returns (id, name, hashed_password, is_admin)."""
+    """Fetches a user by email. Returns (id, name, hashed_password, is_admin, is_blocked)."""
     conn, backend = get_conn()
     cur = conn.cursor()
     ph = _ph(backend)
     try:
         cur.execute(
-            f"SELECT id, name, password, is_admin FROM users WHERE email = {ph}",
+            f"SELECT id, name, password, is_admin, is_blocked FROM users WHERE email = {ph}",
             (email,)
         )
         row = cur.fetchone()
         if row is None:
             return None
-        # Normalise: both backends return indexable rows
-        return (row[0], row[1], row[2], row[3])
+        # row: (id, name, password, is_admin, is_blocked)
+        return (row[0], row[1], row[2], row[3], row[4])
     except Exception as e:
         print(f"get_user_by_email error: {e}")
         return None
@@ -412,6 +416,58 @@ def make_user_admin(email):
     conn.commit()
     cur.close()
     conn.close()
+
+
+def get_all_users():
+    """Fetches all users from the DB."""
+    conn, backend = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT id, name, email, password, is_admin, is_blocked FROM users ORDER BY id ASC")
+        users = cur.fetchall()
+        return [tuple(u) for u in users]
+    except Exception as e:
+        print(f"Error fetching all users: {e}")
+        return []
+    finally:
+        cur.close()
+        conn.close()
+
+
+def delete_user(user_id):
+    """Deletes a user by ID."""
+    conn, backend = get_conn()
+    cur = conn.cursor()
+    ph = _ph(backend)
+    try:
+        cur.execute(f"DELETE FROM users WHERE id = {ph}", (user_id,))
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception as e:
+        print(f"Error deleting user: {e}")
+        conn.rollback()
+        return False
+    finally:
+        cur.close()
+        conn.close()
+
+
+def toggle_block_user(user_id, block_status):
+    """Blocks or unblocks a user by ID."""
+    conn, backend = get_conn()
+    cur = conn.cursor()
+    ph = _ph(backend)
+    try:
+        cur.execute(f"UPDATE users SET is_blocked = {ph} WHERE id = {ph}", (block_status, user_id))
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error toggling block for user: {e}")
+        conn.rollback()
+        return False
+    finally:
+        cur.close()
+        conn.close()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
