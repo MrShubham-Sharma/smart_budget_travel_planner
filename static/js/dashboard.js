@@ -1697,113 +1697,169 @@ const App = {
   Itinerary: {
     openSelector: async function() {
       const modal = document.getElementById('itinerarySelectorModal');
-      const list = document.getElementById('itineraryTripsList');
-      if (!modal || !list) {
-          alert("Error: Itinerary modal elements are missing from HTML. Please refresh your browser with Ctrl+Shift+R!");
-          return;
-      }
+      const list  = document.getElementById('itineraryTripsList');
+      if (!modal || !list) return;
 
-      list.innerHTML = '<li>Loading your trips...</li>';
+      list.innerHTML = '<li style="padding:12px;opacity:0.7;">⏳ Loading your trips…</li>';
       modal.classList.add('show');
 
       try {
-        const response = await fetch('/get-trips');
-        const data = await response.json();
+        const res  = await fetch('/get-trips');
+        const data = await res.json();
 
         if (data.status === 'success' && data.trips && data.trips.length > 0) {
-          list.innerHTML = ''; // clear
+          list.innerHTML = '';
           data.trips.forEach(trip => {
-             // We need trips that have valid geo coords and days
-             const days = Math.max(1, Math.ceil((new Date(trip.end_date) - new Date(trip.start_date)) / (1000 * 60 * 60 * 24)));
-             
-             const li = document.createElement('li');
-             li.innerHTML = `
-                <div>
-                  <strong>${trip.trip_name}</strong> - ${trip.destination}<br>
-                  <span style="font-size:0.8rem;opacity:0.8;">${days} Days • ₹${trip.budget.toLocaleString()}</span>
-                </div>
-                <button type="button" 
-                  onclick="if(window.App && window.App.Itinerary) App.Itinerary.generateTimeline(${trip.latitude}, ${trip.longitude}, ${days}, '${trip.destination.replace(/'/g, "\\'")}')" 
-                  style="border-radius:20px; padding: 5px 15px; font-size: 0.9rem;">
-                  Build Itinerary
-                </button>
-             `;
-             list.appendChild(li);
+            const start = new Date(trip.start_date);
+            const end   = new Date(trip.end_date);
+            const days  = Math.max(1, Math.ceil((end - start) / 86400000));
+            const hasCoords = trip.latitude && trip.longitude;
+
+            const li = document.createElement('li');
+            li.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid rgba(255,255,255,0.08);gap:10px;';
+            li.innerHTML = `
+              <div>
+                <strong style="font-size:0.95rem;">${trip.trip_name}</strong>
+                <div style="font-size:0.8rem;opacity:0.75;margin-top:3px;">📍 ${trip.destination} &nbsp;•&nbsp; ${days} day${days>1?'s':''} &nbsp;•&nbsp; ₹${trip.budget.toLocaleString('en-IN')}</div>
+              </div>
+              <button type="button"
+                onclick="App.Itinerary.generateTimeline(${JSON.stringify(trip.latitude)}, ${JSON.stringify(trip.longitude)}, ${days}, ${JSON.stringify(trip.destination)})"
+                style="flex-shrink:0;padding:7px 16px;border-radius:20px;font-size:0.82rem;font-weight:600;
+                       background:linear-gradient(135deg,#38bdf8,#2575fc);border:none;color:#fff;cursor:pointer;"
+              >🗺️ Build</button>
+            `;
+            list.appendChild(li);
           });
         } else {
-          list.innerHTML = '<li>No trips found. Please "Plan a Trip" and save it first!</li>';
+          list.innerHTML = '<li style="padding:16px;text-align:center;opacity:0.7;">No trips saved yet. Use "Plan Trip" first.</li>';
         }
       } catch (err) {
-        console.error("fetch trips error:", err);
-        list.innerHTML = '<li>Error loading trips. Check console.</li>';
+        console.error('Itinerary openSelector error:', err);
+        list.innerHTML = '<li style="padding:12px;color:#f87171;">❌ Error loading trips.</li>';
       }
     },
-    
+
     closeSelector: function() {
       const m = document.getElementById('itinerarySelectorModal');
       if (m) m.classList.remove('show');
     },
 
     generateTimeline: async function(lat, lon, days, destinationName) {
+      // Close the trip-selector modal first
       this.closeSelector();
-      
-      const modal = document.getElementById('itineraryDisplayModal');
+
+      const modal     = document.getElementById('itineraryDisplayModal');
       const container = document.getElementById('itinerary-container');
-      const subtitle = document.getElementById('itinerary-subtitle');
+      const subtitle  = document.getElementById('itinerary-subtitle');
       if (!modal || !container) return;
 
-      subtitle.innerText = `Generating AI Timeline for ${destinationName}...`;
-      container.innerHTML = `
-        <div style="text-align:center; padding: 40px 0;">
-            <div style="font-size: 2rem; animation: pulse 1.5s infinite;">⏳</div>
-            <p style="margin-top: 15px; color: #666;">Reading Wikipedia Geodata...</p>
-        </div>
-      `;
+      subtitle.textContent = `Generating itinerary for ${destinationName}…`;
+      container.innerHTML  = `
+        <div style="text-align:center;padding:50px 0;">
+          <div style="font-size:2.5rem;animation:pulse 1.5s infinite;">⏳</div>
+          <p style="margin-top:14px;opacity:0.6;font-size:0.9rem;">Reading Wikipedia Geodata…</p>
+        </div>`;
       modal.classList.add('show');
 
       try {
-        const response = await fetch(`/api/itinerary-generator?lat=${lat}&lon=${lon}&days=${days}`);
-        const data = await response.json();
-
-        if (data.status !== 'success') {
-           container.innerHTML = `<p style="color:red; text-align:center;">${data.message}</p>`;
-           return;
+        // --- If the trip has no saved coords, geocode the destination first ---
+        if (!lat || !lon || lat === 'null' || lon === 'null') {
+          container.innerHTML = `<div style="text-align:center;padding:30px;"><div style="font-size:1.5rem;">🔍</div><p style="opacity:0.7;font-size:0.85rem;">Geocoding ${destinationName}…</p></div>`;
+          const geoRes  = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(destinationName)}&format=json&limit=1`, {headers:{'User-Agent':'SmartTravelPlanner/1.0'}});
+          const geoData = await geoRes.json();
+          if (!geoData || geoData.length === 0) {
+            container.innerHTML = `<p style="color:#f87171;text-align:center;">❌ Could not find "${destinationName}" on the map. Try editing the trip to add more detail to the destination name.</p>`;
+            return;
+          }
+          lat = parseFloat(geoData[0].lat);
+          lon = parseFloat(geoData[0].lon);
+          container.innerHTML = `<div style="text-align:center;padding:30px;"><div style="font-size:1.5rem;">✅</div><p style="opacity:0.7;font-size:0.85rem;">Found ${destinationName}! Fetching landmarks…</p></div>`;
         }
 
-        subtitle.innerText = `${days}-Day Itinerary strictly fetching ${data.total_places} popular landmarks.`;
-        container.innerHTML = ''; // clear loading
+        const res  = await fetch(`/api/itinerary-generator?lat=${lat}&lon=${lon}&days=${days}`);
+        const data = await res.json();
+
+        if (data.status !== 'success') {
+          container.innerHTML = `<p style="color:#f87171;text-align:center;padding:20px;">⚠️ ${data.message || 'No landmarks found near this destination.'}</p>`;
+          return;
+        }
+
+        subtitle.textContent = `${days}-day itinerary · ${data.total_places} landmarks near ${destinationName}`;
+        container.innerHTML = '';
 
         data.itinerary.forEach(day => {
-           let html = `
-              <div class="timeline-day">
-                  <h3>Day ${day.day} Highlights</h3>
-                  <div class="timeline">
-           `;
-           day.activities.forEach(act => {
-              const imgTag = act.image ? `<img src="${act.image}" class="timeline-img" alt="${act.title}">` : `<div class="timeline-img" style="display:flex;align-items:center;justify-content:center;background:#fca311;color:white;font-weight:bold;font-size:1.5rem;">${act.title.charAt(0)}</div>`;
-              html += `
-                  <div class="timeline-item">
-                     ${imgTag}
-                     <div class="timeline-content">
-                        <h4>${act.title}</h4>
-                        <p>${act.summary}</p>
-                        <a href="https://www.google.com/maps/search/?api=1&query=${act.lat},${act.lon}" target="_blank" class="timeline-link">
-                           <i class="fas fa-map-marked-alt"></i> View on Map
-                        </a>
-                     </div>
-                  </div>
-              `;
-           });
-           html += `</div></div>`;
-           container.innerHTML += html;
+          const dayDiv = document.createElement('div');
+          dayDiv.className = 'timeline-day';
+          dayDiv.innerHTML = `<h3>📅 Day ${day.day}</h3>`;
+
+          const timelineDiv = document.createElement('div');
+          timelineDiv.className = 'timeline';
+
+          day.activities.forEach(act => {
+            const imgHtml = act.image
+              ? `<img src="${act.image}" class="timeline-img" alt="${act.title}" loading="lazy" onerror="this.style.display='none'">`
+              : `<div class="timeline-img" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#fca311,#f76b1c);color:#fff;font-size:1.8rem;font-weight:700;">${act.title.charAt(0)}</div>`;
+
+            const item = document.createElement('div');
+            item.className = 'timeline-item';
+            item.innerHTML = `
+              ${imgHtml}
+              <div class="timeline-content">
+                <h4>${act.title}</h4>
+                <p>${act.summary || 'A notable landmark worth visiting.'}</p>
+                <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+                  <span style="font-size:0.75rem;background:rgba(56,189,248,0.12);color:#38bdf8;
+                              border:1px solid rgba(56,189,248,0.3);border-radius:20px;padding:3px 10px;">
+                    📍 ${(act.dist !== undefined ? (act.dist/1000).toFixed(1)+' km away' : 'Landmark')}
+                  </span>
+                  <button onclick="App.Itinerary._showMapWidget('${encodeURIComponent(act.title)}',${act.lat},${act.lon})"
+                          style="font-size:0.75rem;background:rgba(37,117,252,0.12);color:#60a5fa;
+                                 border:1px solid rgba(37,117,252,0.3);border-radius:20px;padding:3px 10px;
+                                 cursor:pointer;">
+                    🗺️ Map Preview
+                  </button>
+                </div>
+              </div>`;
+            timelineDiv.appendChild(item);
+          });
+
+          dayDiv.appendChild(timelineDiv);
+          container.appendChild(dayDiv);
         });
 
-      } catch(err) {
-        console.error(err);
-        container.innerHTML = `<p style="color:red;text-align:center;">Failed to connect to the itinerary engine.</p>`;
+      } catch (err) {
+        console.error('generateTimeline error:', err);
+        container.innerHTML = `<p style="color:#f87171;text-align:center;padding:20px;">❌ Failed to connect to the itinerary engine. Check your internet connection.</p>`;
       }
     },
-    
+
+    // Inline map widget — no external redirect
+    _showMapWidget: function(encodedTitle, lat, lon) {
+      const title = decodeURIComponent(encodedTitle);
+      const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${lon-0.02},${lat-0.02},${lon+0.02},${lat+0.02}&layer=mapnik&marker=${lat},${lon}`;
+      // Show inside a toast-style overlay inside the modal container
+      const container = document.getElementById('itinerary-container');
+      const overlay = document.createElement('div');
+      overlay.id = 'itinerary-map-overlay';
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+      overlay.innerHTML = `
+        <div style="background:#1e293b;border-radius:16px;width:100%;max-width:560px;overflow:hidden;box-shadow:0 25px 50px rgba(0,0,0,0.5);">
+          <div style="padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.1);">
+            <strong style="color:#fff;font-size:0.95rem;">📍 ${title}</strong>
+            <button onclick="document.getElementById('itinerary-map-overlay').remove()"
+                    style="background:none;border:none;color:#94a3b8;font-size:1.4rem;cursor:pointer;line-height:1;">×</button>
+          </div>
+          <iframe src="${mapUrl}" width="100%" height="300" frameborder="0" scrolling="no"
+                  style="display:block;border:none;" title="Map of ${title}"></iframe>
+          <div style="padding:12px 20px;">
+            <a href="https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}" target="_blank" rel="noopener"
+               style="font-size:0.82rem;color:#38bdf8;text-decoration:none;">🔗 Open full map in new tab</a>
+          </div>
+        </div>`;
+      overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+      document.body.appendChild(overlay);
+    },
+
     closeDisplay: function() {
       const m = document.getElementById('itineraryDisplayModal');
       if (m) m.classList.remove('show');
