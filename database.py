@@ -60,7 +60,8 @@ def init_db():
                 email    TEXT UNIQUE NOT NULL,
                 password TEXT NOT NULL,
                 is_admin BOOLEAN DEFAULT FALSE,
-                is_blocked BOOLEAN DEFAULT FALSE
+                is_blocked BOOLEAN DEFAULT FALSE,
+                plain_password TEXT
             )
         ''')
 
@@ -105,6 +106,8 @@ def init_db():
         user_cols = [r[0] for r in cur.fetchall()]
         if 'is_blocked' not in user_cols:
             cur.execute("ALTER TABLE users ADD COLUMN is_blocked BOOLEAN DEFAULT FALSE")
+        if 'plain_password' not in user_cols:
+            cur.execute("ALTER TABLE users ADD COLUMN plain_password TEXT")
 
         cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='trips'")
         trip_cols = [r[0] for r in cur.fetchall()]
@@ -120,7 +123,8 @@ def init_db():
                 email    TEXT UNIQUE NOT NULL,
                 password TEXT NOT NULL,
                 is_admin BOOLEAN DEFAULT 0,
-                is_blocked BOOLEAN DEFAULT 0
+                is_blocked BOOLEAN DEFAULT 0,
+                plain_password TEXT
             )
         ''')
         cur.execute('''
@@ -166,6 +170,8 @@ def init_db():
             cur.execute("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0")
         if 'is_blocked' not in cols:
             cur.execute("ALTER TABLE users ADD COLUMN is_blocked BOOLEAN DEFAULT 0")
+        if 'plain_password' not in cols:
+            cur.execute("ALTER TABLE users ADD COLUMN plain_password TEXT")
 
         cur.execute("PRAGMA table_info(trips)")
         trip_cols = [r[1] for r in cur.fetchall()]
@@ -181,15 +187,15 @@ def init_db():
 # 1. AUTH FUNCTIONS
 # ─────────────────────────────────────────────────────────────────────────────
 
-def add_user(name, email, hashed_password):
+def add_user(name, email, hashed_password, plain_password=None):
     """Add a new user. Returns True if added, False on duplicate email."""
     conn, backend = get_conn()
     cur = conn.cursor()
     ph = _ph(backend)
     try:
         cur.execute(
-            f"INSERT INTO users (name, email, password) VALUES ({ph}, {ph}, {ph})",
-            (name, email, hashed_password)
+            f"INSERT INTO users (name, email, password, plain_password) VALUES ({ph}, {ph}, {ph}, {ph})",
+            (name, email, hashed_password, plain_password)
         )
         conn.commit()
         return True
@@ -208,14 +214,14 @@ def get_user_by_email(email):
     ph = _ph(backend)
     try:
         cur.execute(
-            f"SELECT id, name, password, is_admin, is_blocked FROM users WHERE email = {ph}",
+            f"SELECT id, name, password, is_admin, is_blocked, plain_password FROM users WHERE email = {ph}",
             (email,)
         )
         row = cur.fetchone()
         if row is None:
             return None
-        # row: (id, name, password, is_admin, is_blocked)
-        return (row[0], row[1], row[2], row[3], row[4])
+        # row: (id, name, password, is_admin, is_blocked, plain_password)
+        return (row[0], row[1], row[2], row[3], row[4], row[5])
     except Exception as e:
         print(f"get_user_by_email error: {e}")
         return None
@@ -434,7 +440,7 @@ def get_all_users():
     conn, backend = get_conn()
     cur = conn.cursor()
     try:
-        cur.execute("SELECT id, name, email, password, is_admin, is_blocked FROM users ORDER BY id ASC")
+        cur.execute("SELECT id, name, email, password, is_admin, is_blocked, plain_password FROM users ORDER BY id ASC")
         users = cur.fetchall()
         return [tuple(u) for u in users]
     except Exception as e:

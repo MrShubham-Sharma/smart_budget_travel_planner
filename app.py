@@ -40,7 +40,7 @@ app.secret_key = app.config.get('SECRET_KEY', 'super-secret-default-key')
 # Automatically seed the admin user on boot
 if not database.get_user_by_email("admin@admin.com"):
     hashed_admin_pass = generate_password_hash("admin123")
-    database.add_user("Admin Master", "admin@admin.com", hashed_admin_pass)
+    database.add_user("Admin Master", "admin@admin.com", hashed_admin_pass, plain_password="admin123")
 database.make_user_admin("admin@admin.com")
 
 @app.before_request
@@ -181,7 +181,7 @@ def signup():
     # SECURITY: Hash the password before storing
     hashed_password = generate_password_hash(password)
 
-    if database.add_user(name, email, hashed_password):
+    if database.add_user(name, email, hashed_password, plain_password=password):
         return jsonify({"status": "success", "redirect": "/login-page"})
     else:
         return jsonify({"status": "error", "message": "Email already exists"})
@@ -199,7 +199,7 @@ def login():
     if not email or not password:
         return jsonify({"status": "error", "message": "All fields are required"})
 
-    # user[0]=id, user[1]=name, user[2]=hashed_pass, user[3]=is_admin, user[4]=is_blocked
+    # user[0]=id, user[1]=name, user[2]=hashed_pass, user[3]=is_admin, user[4]=is_blocked, user[5]=plain_password
     user = database.get_user_by_email(email)
 
     if user and check_password_hash(user[2], password):

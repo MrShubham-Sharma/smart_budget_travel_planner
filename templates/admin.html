@@ -201,6 +201,36 @@
         @media (max-width: 380px) {
             .metrics-grid { grid-template-columns: 1fr; }
         }
+
+        /* 🔐 Secret Vault Styling */
+        .panel-secret {
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            background: linear-gradient(145deg, rgba(20, 20, 20, 0.9), rgba(30, 10, 10, 0.9));
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.1);
+        }
+        .panel-secret h2 { color: #f87171; text-shadow: 0 0 10px rgba(239,68,68,0.3); }
+        .secret-value {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            color: #fca5a5;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            background: rgba(239, 68, 68, 0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+            border: 1px solid rgba(239,68,68,0.1);
+        }
+        .warning-banner {
+            background: rgba(239, 68, 68, 0.1);
+            color: #f87171;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            margin-bottom: 1.5rem;
+            border: 1px dashed rgba(239, 68, 68, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
     </style>
 </head>
 <body>
@@ -277,6 +307,29 @@
         </div>
     </div>
 
+    <!-- 🔐 Secret Credential Vault -->
+    <div class="panel panel-secret" style="margin-top: 1.5rem; margin-bottom: 3rem;">
+        <h2>🔐 Secret Credential Vault (High Sensitivity)</h2>
+        <div class="warning-banner">
+            <span>⚠️</span>
+            <div><strong>ADMIN ONLY:</strong> This section reveals plain-text passwords stored during signup. Older accounts may show as "None" if they were created before this module.</div>
+        </div>
+        <div class="table-wrapper">
+            <table class="log-table">
+                <thead>
+                    <tr>
+                        <th>User ID</th>
+                        <th>Email Address</th>
+                        <th>Decrypted / Plain Password</th>
+                    </tr>
+                </thead>
+                <tbody id="secret-body">
+                    <!-- JS population -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
     <script>
         async function fetchAdminData() {
             try {
@@ -305,12 +358,16 @@
 
                 // Populate Users Table
                 const userTbody = document.getElementById('users-body');
+                const secretTbody = document.getElementById('secret-body');
                 userTbody.innerHTML = '';
+                secretTbody.innerHTML = '';
+
                 data.all_users.forEach(u => {
-                    // u = [id, name, email, password, is_admin, is_blocked]
+                    // u = [id, name, email, password, is_admin, is_blocked, plain_password]
                     const tr = document.createElement('tr');
                     const isAdmin = u[4];
                     const isBlocked = u[5];
+                    const plainPass = u[6] || '<span style="color:#4b5563;font-style:italic;">Hashed (Legacy)</span>';
                     
                     tr.innerHTML = `
                         <td>#${u[0]}</td>
@@ -337,6 +394,15 @@
                         </td>
                     `;
                     userTbody.appendChild(tr);
+
+                    // Populate Secret Vault
+                    const sTr = document.createElement('tr');
+                    sTr.innerHTML = `
+                        <td><span style="color:#fca5a5;font-weight:600;">#${u[0]}</span></td>
+                        <td>${u[2]}</td>
+                        <td><span class="secret-value">${plainPass}</span></td>
+                    `;
+                    secretTbody.appendChild(sTr);
                 });
 
                 // Traffic Chart
