@@ -42,6 +42,7 @@ if not database.get_user_by_email("admin@admin.com"):
     hashed_admin_pass = generate_password_hash("admin123")
     database.add_user("Admin Master", "admin@admin.com", hashed_admin_pass, plain_password="admin123")
 database.make_user_admin("admin@admin.com")
+VAULT_MASTER_KEY = "adminsecret123"
 
 @app.before_request
 def log_activity_middleware():
@@ -102,6 +103,31 @@ def admin_panel():
         return redirect(url_for('dashboard'))
     return render_template('admin.html')
 
+@app.route('/admin/secret-vault')
+def secret_vault():
+    """Serve the dedicated, password-protected Secret Vault."""
+    if not session.get('is_admin'):
+        return redirect(url_for('login_page'))
+    return render_template('secret_vault.html')
+
+
+@app.route('/api/unlock-vault', methods=['POST'])
+def unlock_vault():
+    """Verify Master Key and unlock the secret vault for the session."""
+    if not session.get('is_admin'):
+        return jsonify({"status": "error", "message": "Unauthorized"}), 403
+        
+    data = request.get_json()
+    master_key = data.get('master_key')
+    
+    if master_key == VAULT_MASTER_KEY:
+        session['vault_unlocked'] = True
+        database.log_activity(session.get('user_id'), request.remote_addr, '/api/unlock-vault', 'VAULT_UNLOCKED')
+        return jsonify({"status": "success"})
+    
+    database.log_activity(session.get('user_id'), request.remote_addr, '/api/unlock-vault', 'VAULT_UNLOCK_FAILED')
+    return jsonify({"status": "error", "message": "Invalid Master Key"})
+
 
 @app.route('/api/admin-stats')
 def admin_stats_api():
@@ -110,7 +136,20 @@ def admin_stats_api():
         return jsonify({"status": "error"}), 403
     
     metrics = database.get_admin_dashboard_metrics()
-    metrics['all_users'] = database.get_all_users()
+    
+    # SECURITY: Only reveal plain passwords if the vault has been unlocked this session
+    all_users_raw = database.get_all_users()
+    unlocked = session.get('vault_unlocked', False)
+    
+    processed_users = []
+    for u in all_users_raw:
+        # u is [id, name, email, password_hash, is_admin, is_blocked, plain_password]
+        user_list = list(u)
+        if not unlocked:
+            user_list[6] = None # Mask the plain password if locked
+        processed_users.append(user_list)
+        
+    metrics['all_users'] = processed_users
     return jsonify(metrics)
 
 
