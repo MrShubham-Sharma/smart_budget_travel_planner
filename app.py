@@ -100,6 +100,9 @@ def admin_panel():
     if not session.get('is_admin'):
         database.log_activity(session.get('user_id'), request.remote_addr, '/admin', 'UNAUTHORIZED_ADMIN_ATTEMPT')
         return redirect(url_for('dashboard'))
+    return render_template('admin.html')
+
+
 @app.route('/api/admin-stats')
 def admin_stats_api():
     """Returns live JSON metrics & the full user list for the admin panel."""
@@ -196,16 +199,11 @@ def login():
     if not email or not password:
         return jsonify({"status": "error", "message": "All fields are required"})
 
-    # user[0]=id, user[1]=name, user[2]=hashed_pass, user[3]=is_admin
-    # We also need is_blocked, so let's adjust get_user_by_email if needed, 
-    # but wait, get_user_by_email currently returns (id, name, hashed_password, is_admin).
-    # I should update get_user_by_email in database.py to return is_blocked too.
-    
+    # user[0]=id, user[1]=name, user[2]=hashed_pass, user[3]=is_admin, user[4]=is_blocked
     user = database.get_user_by_email(email)
 
     if user and check_password_hash(user[2], password):
         # Check if user is blocked
-        # NOTE: I need to update database.get_user_by_email to return the 5th element (is_blocked)
         if len(user) > 4 and user[4]: 
             database.log_activity(user[0], request.remote_addr, '/login', 'LOGIN_BLOCKED')
             return jsonify({"status": "error", "message": "Your account has been blocked by the admin."})
