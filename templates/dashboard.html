@@ -70,7 +70,7 @@
       </div>
 
       <!-- 6. Itineraries (NEW) -->
-      <div class="glass-card card option-card" data-action="itinerary" style="cursor: pointer;" onclick="if(window.App && window.App.Itinerary) App.Itinerary.openSelector()">
+      <div class="glass-card card option-card" data-action="itinerary" style="cursor: pointer;" onclick="javascript:document.getElementById('itinerarySelectorModal').style.display='block'; if(window.App && window.App.Itinerary) App.Itinerary.openSelector(); else alert('Error: App.Itinerary not loaded');">
         <div class="glass-icon"><i class="fas fa-calendar-alt"></i></div>
         <h3>Trip Itineraries</h3>
         <p>Generate daily smart itineraries.</p>

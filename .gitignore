@@ -9,6 +9,7 @@ instance/
 
 # ML model grids (auto-generated on startup via train_models.py, but now committed since they are small RF models)
 # models/
+models/budget_grid.json
 
 # Environment variables (never commit secrets)
 .env
