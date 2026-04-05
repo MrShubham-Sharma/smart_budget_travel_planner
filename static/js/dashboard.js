@@ -1717,17 +1717,26 @@ const App = {
 
             const li = document.createElement('li');
             li.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid rgba(255,255,255,0.08);gap:10px;';
-            li.innerHTML = `
-              <div>
-                <strong style="font-size:0.95rem;">${trip.trip_name}</strong>
-                <div style="font-size:0.8rem;opacity:0.75;margin-top:3px;">📍 ${trip.destination} &nbsp;•&nbsp; ${days} day${days>1?'s':''} &nbsp;•&nbsp; ₹${trip.budget.toLocaleString('en-IN')}</div>
-              </div>
-              <button type="button"
-                onclick="App.Itinerary.generateTimeline(${JSON.stringify(trip.latitude)}, ${JSON.stringify(trip.longitude)}, ${days}, ${JSON.stringify(trip.destination)})"
-                style="flex-shrink:0;padding:7px 16px;border-radius:20px;font-size:0.82rem;font-weight:600;
-                       background:linear-gradient(135deg,#38bdf8,#2575fc);border:none;color:#fff;cursor:pointer;"
-              >🗺️ Build</button>
+
+            // Info section (safe to set via innerHTML — no user-JS involved)
+            const info = document.createElement('div');
+            info.innerHTML = `
+              <strong style="font-size:0.95rem;">${trip.trip_name}</strong>
+              <div style="font-size:0.8rem;opacity:0.75;margin-top:3px;">📍 ${trip.destination} &nbsp;•&nbsp; ${days} day${days>1?'s':''} &nbsp;•&nbsp; ₹${trip.budget.toLocaleString('en-IN')}</div>
             `;
+
+            // Button created as a real DOM element — addEventListener avoids double-quote
+            // conflicts that break onclick="...JSON.stringify(destination)..." in HTML
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = '🗺️ Build';
+            btn.style.cssText = 'flex-shrink:0;padding:7px 16px;border-radius:20px;font-size:0.82rem;font-weight:600;background:linear-gradient(135deg,#38bdf8,#2575fc);border:none;color:#fff;cursor:pointer;';
+            btn.addEventListener('click', () => {
+              App.Itinerary.generateTimeline(trip.latitude, trip.longitude, days, trip.destination);
+            });
+
+            li.appendChild(info);
+            li.appendChild(btn);
             list.appendChild(li);
           });
         } else {
