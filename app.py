@@ -1,4 +1,4 @@
-import os
+﻿import os
 import threading
 import requests
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
@@ -93,7 +93,23 @@ def dashboard():
     """Serve the main dashboard, protected by session."""
     if not session.get('user_id'):
         return redirect(url_for('login_page'))
-    return render_template('dashboard.html', user_name=session.get('user_name'), is_admin=session.get('is_admin'))
+    hf_key = os.environ.get('HF_API_KEY')
+    hf_model = os.environ.get('HF_MODEL', 'google/flan-t5-small')
+    hf_public_available = not hf_key and hf_model in ['google/flan-t5-small', 'google/flan-t5-base', 'distilgpt2', 'gpt2']
+    ai_enabled = bool(hf_key or os.environ.get('OPENAI_API_KEY') or os.environ.get('GOOGLE_API_KEY') or hf_public_available)
+    ai_platform = (
+        'Hugging Face' if hf_key else
+        ('Hugging Face Public' if hf_public_available else
+         ('OpenAI' if os.environ.get('OPENAI_API_KEY') else
+          ('Gemini' if os.environ.get('GOOGLE_API_KEY') else 'Offline')))
+    )
+    return render_template(
+        'dashboard.html',
+        user_name=session.get('user_name'),
+        is_admin=session.get('is_admin'),
+        ai_enabled=ai_enabled,
+        ai_platform=ai_platform
+    )
 
 @app.route('/admin')
 def admin_panel():
@@ -563,24 +579,219 @@ def predict_eta_api():
 def chat_api():
     """
     Smart NLP-style chatbot backend.
-    Processes user message, matches against intent engine, and returns
-    a contextual travel response. Falls back to Wikipedia summary for
-    unknown factual queries.
+    Processes user message and optionally forwards it to an external
+    LLM if configured. Falls back to the internal travel intent engine.
     """
     if not request.is_json:
         return jsonify({"reply": "Invalid request format."}), 400
 
     data = request.get_json()
     message = (data.get('message') or '').strip()
+    history = data.get('history', []) if isinstance(data.get('history', []), list) else []
     if not message:
         return jsonify({"reply": "Please type something so I can help you!"}), 400
 
     # Log chat usage
     database.log_activity(session.get('user_id'), request.remote_addr, '/api/chat', 'CHATBOT_QUERY')
 
-    reply = _process_chatbot(message)
+    hf_key = os.environ.get('HF_API_KEY')
+    hf_model = os.environ.get('HF_MODEL', 'google/flan-t5-small')
+    hf_public_available = not hf_key and hf_model in ['google/flan-t5-small', 'google/flan-t5-base', 'distilgpt2', 'gpt2']
+
+    reply = None
+    if hf_key or os.environ.get('OPENAI_API_KEY') or os.environ.get('GOOGLE_API_KEY') or hf_public_available:
+        reply = _call_external_llm(message, history)
+
+    # Enhanced fallback for common travel questions
+    if not reply:
+        reply = _handle_general_travel_query(message)
+    
+    if not reply:
+        reply = _process_chatbot(message)
+
     return jsonify({"reply": reply})
 
+
+def _handle_general_travel_query(message):
+    """Provide intelligent responses to general travel questions without external APIs."""
+    m = message.lower().strip()
+    
+    # Destination + Month/Season queries
+    DESTINATION_MONTHS = {
+        'nashik': {
+            'best': 'Oct-Mar (winter)',
+            'details': '🍇 <b>Nashik in Different Seasons:</b><br><br>'
+                      '<b>Best Time: Oct-Mar</b> (15-30°C)<br>'
+                      '• Perfect weather for Trimbakeshwar temple & wine tours<br>'
+                      '• Sula Vineyards open for tastings<br>'
+                      '• Festival season (Diwali, New Year)<br><br>'
+                      '<b>Avoid: Apr-Jun (Heat 35-42°C)</b><br>'
+                      '<b>Monsoon: Jul-Sep (Rainy, slippery roads)</b><br>'
+                      '• Beautiful greenery though!<br>'
+                      '• Plan waterfalls visits<br><br>'
+                      '💡 <b>Best Month: Nov-Feb</b> — cool mornings, clear skies perfect for wine trails!'
+        },
+        'goa': {
+            'best': 'Nov-Mar (dry season)',
+            'details': '🏖️ <b>Goa in Different Seasons:</b><br><br>'
+                      '<b>Best Time: Nov-Mar</b> (20-32°C)<br>'
+                      '• Perfect beach weather<br>'
+                      '• Christmas/New Year parties<br>'
+                      '• Water sports season<br><br>'
+                      '<b>Apr-May (Hot 32-40°C)</b> — humid, crowded<br>'
+                      '<b>Jun-Sep (Monsoon)</b> — rainy, beaches closed<br>'
+                      '• But cheap rates & fewer tourists!<br><br>'
+                      '💡 <b>Best Month: Dec-Jan</b> — perfect weather, peak season (book 2 months ahead!)'
+        },
+        'manali': {
+            'best': 'Mar-Nov (rest closed by snow)',
+            'details': '❄️ <b>Manali in Different Seasons:</b><br><br>'
+                      '<b>Best: Mar-Nov</b> (10-25°C)<br>'
+                      '• Summer (May-Jun): green valleys, adventure sports<br>'
+                      '• Autumn (Sep-Oct): clear skies, perfect hiking<br><br>'
+                      '<b>Winter (Dec-Feb)</b> — snowfall but roads treacherous<br>'
+                      '<b>Avoid: Jul-Aug</b> — heavy rain, mudslides<br><br>'
+                      '💡 <b>Best Months: May-Jun & Sep-Oct</b> — perfect for trekking & sightseeing!'
+        },
+        'jaipur': {
+            'best': 'Oct-Mar (winter)',
+            'details': '🏰 <b>Jaipur (Pink City) Seasons:</b><br><br>'
+                      '<b>Best: Oct-Mar</b> (15-30°C)<br>'
+                      '• Perfect for palace tours & camel rides<br>'
+                      '• Diwali & holi festivals<br><br>'
+                      '<b>Apr-Jun (40-45°C)</b> — extreme heat, not recommended<br>'
+                      '<b>Jul-Sep (Monsoon)</b> — rainy, slippery forts<br><br>'
+                      '💡 <b>Best Months: Nov-Feb</b> — cool mornings perfect for sightseeing!'
+        },
+        'kerala': {
+            'best': 'Oct-Mar (post-monsoon to summer)',
+            'details': '🌴 <b>Kerala Backwaters Seasons:</b><br><br>'
+                      '<b>Best: Oct-Mar</b> (20-32°C)<br>'
+                      '• Houseboat season peak<br>'
+                      '• Clear water, perfect for photos<br><br>'
+                      '<b>Apr-May (Hot 32-38°C)</b> — humid before monsoon<br>'
+                      '<b>Jun-Sep (Monsoon)</b><br>'
+                      '• Lush green, rain tourism<br>'
+                      '• Budget prices, fewer tourists<br>'
+                      '• Roads slippery, not ideal<br><br>'
+                      '💡 <b>Best Months: Nov-Dec</b> — cool, festive, houseboats ready!'
+        },
+        'rajasthan': {
+            'best': 'Oct-Mar (winter)',
+            'details': '🏜️ <b>Rajasthan Desert Seasons:</b><br><br>'
+                      '<b>Best: Oct-Mar</b> (15-30°C)<br>'
+                      '• Perfect for desert safaris & camel rides<br>'
+                      '• Pushkar Fair (Nov), Thar Festival (Feb)<br><br>'
+                      '<b>Apr-Jun (42-48°C)</b> — AVOID! Extreme heat<br>'
+                      '<b>Jul-Sep (Monsoon)</b> — rare rain, green desert<br><br>'
+                      '💡 <b>Best Months: Nov-Jan</b> — cool nights, warm days perfect!'
+        },
+        'ladakh': {
+            'best': 'Jun-Sep (only open these months)',
+            'details': '🏔️ <b>Ladakh High Desert Seasons:</b><br><br>'
+                      '<b>Open ONLY: Jun-Sep</b> (10-20°C)<br>'
+                      '• Roads open after snowmelt<br>'
+                      '• Crystal clear skies<br>'
+                      '• Trekking & lake visits<br><br>'
+                      '<b>Oct-May CLOSED</b><br>'
+                      '• Heavy snow, roads blocked<br>'
+                      '• Only locals/prepared travelers<br><br>'
+                      '💡 <b>Best Months: Jul-Aug</b> — warmest, all activities open!'
+        },
+        'darjeeling': {
+            'best': 'Oct-Nov & Mar-May (clear views)',
+            'details': '🍵 <b>Darjeeling Tea Gardens Seasons:</b><br><br>'
+                      '<b>Best: Oct-Nov & Mar-May</b> (10-20°C)<br>'
+                      '• Clear mountain views (Kanchenjunga)<br>'
+                      '• Tea harvest season (first & second flush)<br><br>'
+                      '<b>Dec-Feb (5-10°C)</b> — cold, misty mornings<br>'
+                      '<b>Jun-Sep (Monsoon)</b> — lush but rainy<br><br>'
+                      '💡 <b>Best Months: April-May</b> — rhododendrons bloom, clear skies!'
+        }
+    }
+    
+    # Check if asking about specific destination's best month
+    for dest, info in DESTINATION_MONTHS.items():
+        if dest in m and ('best' in m or 'month' in m or 'season' in m or 'visit' in m or 'when' in m):
+            return info['details']
+    
+    # May travel destinations
+    if 'may' in m and ('place' in m or 'destination' in m or 'prefer' in m or 'visit' in m or 'best' in m):
+        return (
+            "🌞 <b>Best Places to Visit India in May:</b><br><br>"
+            "<b>Cool & Hill Stations:</b><br>"
+            "• <b>Himachal Pradesh</b> (Manali, Shimla, Mcleod Ganj) — 15-25°C, perfect weather<br>"
+            "• <b>Kashmir</b> (Srinagar, Gulmarg) — alpine meadows in bloom, 18-24°C<br>"
+            "• <b>Uttarakhand</b> (Mussoorie, Nainital) — pleasant, 18-25°C<br><br>"
+            "<b>Higher Altitude Escapes:</b><br>"
+            "• <b>Ladakh & Spiti</b> — roads open in May, 10-20°C<br>"
+            "• <b>Darjeeling & Sikkim</b> — rhododendrons blooming, 15-20°C<br><br>"
+            "<b>Avoid May:</b><br>"
+            "• Plains (Delhi, Mumbai, Gujarat) — heat 40-50°C<br>"
+            "• Coasts get humid and rainy by late May<br><br>"
+            "💡 <i>Book flights & hotels early for hill stations — May is peak season!</i>"
+        )
+    
+    # General India queries
+    if 'india' in m and ('place' in m or 'destination' in m or 'visit' in m or 'best' in m):
+        return (
+            "🇮🇳 <b>India is incredible year-round!</b> Here are the top regions:<br><br>"
+            "<b>North:</b> Himalayas, Taj Mahal, temples, adventure sports<br>"
+            "<b>South:</b> Beaches (Goa, Kerala), temples, backwaters<br>"
+            "<b>West:</b> Deserts (Rajasthan), beach resorts (Goa, Gujarat)<br>"
+            "<b>East:</b> Tea gardens (Darjeeling), Sundarbans, culture<br><br>"
+            "💡 Best season: Oct-Mar for most of India. Avoid Jun-Aug (monsoon) and May (extreme heat)."
+        )
+    
+    # Budget questions
+    if 'budget' in m or 'cost' in m or 'cheap' in m or 'expensive' in m or 'price' in m:
+        return (
+            "💰 <b>India Travel Budget Guide:</b><br><br>"
+            "<b>Budget Travel:</b> ₹500-1000/day (hostels, street food)<br>"
+            "<b>Mid-Range:</b> ₹1500-3000/day (3-star hotels, good restaurants)<br>"
+            "<b>Comfort:</b> ₹5000+/day (resorts, premium dining)<br><br>"
+            "<b>Cheapest States:</b> Rajasthan, Goa, Himachal Pradesh<br>"
+            "<b>Most Expensive:</b> Delhi, Mumbai, Kerala backwaters<br><br>"
+            "💡 Use our Smart Budget predictor in the app for exact estimates!"
+        )
+    
+    # Visa & travel documents
+    if 'visa' in m or 'passport' in m or 'document' in m or 'entry' in m:
+        return (
+            "📄 <b>India Visa & Travel Info:</b><br><br>"
+            "<b>Tourist Visa:</b> 60-180 days (check your country)<br>"
+            "<b>Online e-Visa:</b> Fast & easy at indianvisaonline.gov.in<br>"
+            "<b>Required:</b> Valid passport (6+ months), return ticket<br><br>"
+            "💡 Citizens of Thailand, Vietnam, Philippines get free 30-day visa on arrival!"
+        )
+    
+    # Safety questions
+    if 'safe' in m or 'safety' in m or 'dangerous' in m or 'secure' in m:
+        return (
+            "🛡️ <b>India Safety Tips:</b><br><br>"
+            "<b>Safe Regions:</b> Tourist areas (Goa, Kerala, Rajasthan, Himalayas)<br>"
+            "<b>Best Practices:</b><br>"
+            "• Avoid traveling alone at night<br>"
+            "• Use official taxis/Uber, not street hails<br>"
+            "• Avoid valuables in crowded areas<br>"
+            "• Dress modestly outside tourist zones<br>"
+            "• Trust your instincts<br><br>"
+            "💡 <b>India is generally safe for tourism!</b> Millions visit safely every year."
+        )
+    
+    # Transportation
+    if 'train' in m or 'flight' in m or 'transport' in m or 'travel' in m or 'bus' in m:
+        return (
+            "🚂 <b>Indian Transportation Guide:</b><br><br>"
+            "<b>Trains:</b> Extensive network, cheap & iconic (book on railyatri.in)<br>"
+            "<b>Flights:</b> Budget airlines: IndiGo, SpiceJet, GoAir<br>"
+            "<b>Buses:</b> GoIbo connects 1000+ cities<br>"
+            "<b>Local:</b> Autos (tuk-tuks), taxis Uber/Ola<br><br>"
+            "💡 Trains are the soul of India travel — highly recommended!"
+        )
+    
+    # General greeting
+    return None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1142,6 +1353,127 @@ def _get_stay_info(place_key):
     return "".join(lines)
 
 
+def _call_external_llm(message, history):
+    """Try to answer the chat message with an external LLM if configured."""
+    hf_key = os.environ.get('HF_API_KEY')
+    hf_model = os.environ.get('HF_MODEL', 'google/flan-t5-small')
+    openai_key = os.environ.get('OPENAI_API_KEY')
+    google_key = os.environ.get('GOOGLE_API_KEY')
+    openai_model = os.environ.get('OPENAI_MODEL', 'gpt-4o-mini')
+
+    system_prompt = (
+        "You are a helpful travel assistant with special knowledge of Indian travel, "
+        "but you can also answer general questions. Keep responses safe, factual and concise. "
+        "If the user asks about travel, prioritize practical travel advice."
+    )
+
+    def _query_hf_model(model_name, auth_header=None):
+        prompt = system_prompt + "\n\n" + "Conversation history:\n"
+        for item in history[-6:]:
+            role = 'User' if item.get('role') == 'user' else 'Assistant'
+            prompt += f"{role}: {item.get('text')}\n"
+        prompt += f"User: {message}\nAssistant:"
+
+        headers = {'Content-Type': 'application/json'}
+        if auth_header:
+            headers['Authorization'] = auth_header
+
+        payload = {
+            'inputs': prompt,
+            'parameters': {
+                'max_new_tokens': 200,
+                'temperature': 0.7,
+                'top_p': 0.9,
+                'return_full_text': False
+            }
+        }
+        url = f'https://api-inference.huggingface.co/models/{model_name}'
+        response = requests.post(url, headers=headers, json=payload, timeout=20)
+        if response.ok:
+            data = response.json()
+            if isinstance(data, dict) and 'error' not in data:
+                if isinstance(data.get('generated_text'), str):
+                    return data['generated_text'].strip()
+                if isinstance(data, list) and len(data) and isinstance(data[0], dict):
+                    return data[0].get('generated_text', '').strip()
+        return None
+
+    try:
+        if hf_key:
+            result = _query_hf_model(hf_model, auth_header=f'Bearer {hf_key}')
+            if result:
+                return result
+
+        if not hf_key:
+            # Try a public HF model without an API key.
+            result = _query_hf_model(hf_model)
+            if result:
+                return result
+
+            # Fallback to a small open model if the first public model is blocked.
+            fallback_model = 'gpt2'
+            result = _query_hf_model(fallback_model)
+            if result:
+                return result
+
+        if openai_key:
+            payload = {
+                "model": openai_model,
+                "messages": [
+                    {"role": "system", "content": system_prompt}
+                ],
+                "temperature": 0.7,
+                "max_tokens": 450,
+                "top_p": 0.9
+            }
+            for item in history[-6:]:
+                if item.get('role') in ['user', 'bot'] and item.get('text'):
+                    payload['messages'].append({
+                        'role': item['role'],
+                        'content': item['text']
+                    })
+            payload['messages'].append({"role": "user", "content": message})
+
+            headers = {
+                'Authorization': f'Bearer {openai_key}',
+                'Content-Type': 'application/json'
+            }
+            response = requests.post(
+                'https://api.openai.com/v1/chat/completions',
+                headers=headers,
+                json=payload,
+                timeout=15
+            )
+            if response.ok:
+                result = response.json()
+                return result['choices'][0]['message']['content'].strip()
+
+        if google_key:
+            gemini_url = os.environ.get('GOOGLE_GEMINI_URL')
+            if gemini_url:
+                headers = {
+                    'Authorization': f'Bearer {google_key}',
+                    'Content-Type': 'application/json'
+                }
+                response = requests.post(
+                    gemini_url,
+                    headers=headers,
+                    json={
+                        'prompt': message,
+                        'history': history[-6:],
+                        'max_output_tokens': 500
+                    },
+                    timeout=15
+                )
+                if response.ok:
+                    data = response.json()
+                    return data.get('output_text') or data.get('response')
+    except Exception:
+        pass
+
+    return None
+
+
 def _process_chatbot(message):
     """
     AI Travel Chatbot — NLP intent engine.
@@ -1652,6 +1984,45 @@ def _process_chatbot(message):
                     "<li>✅ For trains: Aadhaar or any photo ID verified against your PNR.</li>"
                     "<li>✅ Keep digital copies of your ID on DigiLocker (India's official app).</li>"
                     "<li>ℹ️ <i>Planning to go outside India? Ask me about 'international travel documents'.</i></li></ul>")
+
+    # ─── INTENT: Best destination by season ───
+    if any(w in m for w in ["best place", "best destination", "best spot", "where should i go", "where to go", "best city", "best hill station"]) and any(s in m for s in ["summer", "monsoon", "winter", "spring", "autumn", "fall"]):
+        if "summer" in m:
+            return ("☀️ <b>Best places to visit in summer:</b><br>"
+                    "<ul>"
+                    "<li><b>Ladakh / Nubra Valley</b> — cool alpine deserts, dramatic mountain roads.</li>"
+                    "<li><b>Spiti Valley</b> — remote high-altitude summer escape with clear skies.</li>"
+                    "<li><b>Auli</b> or <b>Manali</b> — great for mountain views and pleasant temperatures.</li>"
+                    "<li><b>North Sikkim</b> / <b>Darjeeling</b> — green hill stations with cooler weather.</li>"
+                    "<li><b>Shimla</b> and <b>Nainital</b> — classic summer hill station favourites.</li>"
+                    "</ul>"
+                    "<br>For a more relaxing summer trip, tell me your preferred region or budget.")
+        if "monsoon" in m or "rain" in m:
+            return ("🌧️ <b>Best places to visit in monsoon:</b><br>"
+                    "<ul>"
+                    "<li><b>Munnar</b> / <b>Coorg</b> — lush tea gardens and misty hills.</li>"
+                    "<li><b>Lonavala</b> / <b>Khandala</b> — quick monsoon getaways near Mumbai.</li>"
+                    "<li><b>Cherrapunji</b> / <b>Mawsynram</b> — dramatic waterfalls and rain forests.</li>"
+                    "<li><b>Goa</b> (south coast) — quieter beaches with green scenery.</li>"
+                    "</ul>"
+                    "<br>Monsoon travel is beautiful if you choose hill stations and backwaters.")
+        if "winter" in m:
+            return ("❄️ <b>Best places to visit in winter:</b><br>"
+                    "<ul>"
+                    "<li><b>Rajasthan</b> — Jaipur, Udaipur, Jaisalmer, and Jodhpur are at their best.</li>"
+                    "<li><b>Goa</b> — beach weather is perfect and the coast is festive.</li>"
+                    "<li><b>Kerala</b> — backwaters, beaches, and hill stations are very pleasant.</li>"
+                    "<li><b>Andaman</b> — warm beach weather with excellent snorkeling.</li>"
+                    "</ul>"
+                    "<br>Let me know if you want a suggestion by region, budget, or travel style.")
+        if "spring" in m or "autumn" in m or "fall" in m:
+            return ("🍂 <b>Best places for spring/autumn travel:</b><br>"
+                    "<ul>"
+                    "<li><b>Darjeeling</b> / <b>Gangtok</b> — crisp skies and flowering valleys.</li>"
+                    "<li><b>Coorg</b> — coffee plantations and mild weather.</li>"
+                    "<li><b>Ooty</b> / <b>Kodaikanal</b> — scenic hill stations in south India.</li>"
+                    "</ul>"
+                    "<br>Tell me your travel dates and I can refine the recommendation.")
 
     # ─── INTENT: Weather ───
     if any(w in m for w in ["weather", "rain", "monsoon", "summer", "winter", "temperature",

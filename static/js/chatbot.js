@@ -227,18 +227,21 @@ function appendChatMessage(sender, htmlContent) {
     if (!chatWindow) return;
 
     const msgDiv = document.createElement('div');
-    msgDiv.className = `chat-message ${sender}`;
+    msgDiv.className = `chat-message ${sender} anim-slide-up`;
     msgDiv.innerHTML = `<p>${htmlContent}</p>`;
 
-    // Animate in
+    // Animate in with a premium spring feel
     msgDiv.style.opacity = '0';
-    msgDiv.style.transform = 'translateY(10px)';
+    msgDiv.style.transform = 'translateY(16px) scale(0.96)';
     chatWindow.appendChild(msgDiv);
 
+    // Force reflow
+    msgDiv.offsetHeight;
+
     requestAnimationFrame(() => {
-        msgDiv.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+        msgDiv.style.transition = 'opacity 0.4s ease, transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
         msgDiv.style.opacity = '1';
-        msgDiv.style.transform = 'translateY(0)';
+        msgDiv.style.transform = 'translateY(0) scale(1)';
     });
 
     chatWindow.scrollTop = chatWindow.scrollHeight;

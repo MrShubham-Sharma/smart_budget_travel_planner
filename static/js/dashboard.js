@@ -31,6 +31,7 @@ const App = {
     this.Map.initMainMap();
     App.Chatbot.init(); // Initialize the chatbot listeners
     this.loadTripsForAutoSelect(); // Load trips for auto-selection
+    this.Interactions.init(); // Initialize premium interactions
   },
 
   cacheElements: function () {
@@ -2036,6 +2037,77 @@ const App = {
     closeDisplay: function() {
       const m = document.getElementById('itineraryDisplayModal');
       if (m) m.classList.remove('show');
+    }
+  },
+
+  // ---------------------------------
+  // 9. INTERACTIONS MODULE (MAGNETIC & MICRO)
+  // ---------------------------------
+  Interactions: {
+    init: function() {
+      this.initMagneticEffects();
+      this.initButtonGlows();
+    },
+
+    initMagneticEffects: function() {
+      const targets = document.querySelectorAll('.magnetic-target');
+      targets.forEach(target => {
+        // Wrap content if not already wrapped
+        if (!target.querySelector('.magnetic-wrap')) {
+          target.innerHTML = `<div class="magnetic-wrap">${target.innerHTML}</div>`;
+        }
+
+        const wrap = target.querySelector('.magnetic-wrap');
+
+        target.addEventListener('mousemove', (e) => {
+          const rect = target.getBoundingClientRect();
+          const x = e.clientX - rect.left - rect.width / 2;
+          const y = e.clientY - rect.top - rect.height / 2;
+
+          // Pull wrap towards cursor (magnetic effect)
+          wrap.style.transform = `translate(${x * 0.25}px, ${y * 0.25}px)`;
+        });
+
+        target.addEventListener('mouseleave', () => {
+          wrap.style.transform = `translate(0px, 0px)`;
+        });
+      });
+    },
+
+    initButtonGlows: function() {
+      const btns = document.querySelectorAll('button:not(.btn-close), .card.option-card');
+      btns.forEach(btn => {
+        btn.addEventListener('mousedown', () => {
+          btn.style.transform = 'scale(0.96)';
+          btn.style.filter = 'brightness(1.1)';
+        });
+        const resetStyles = () => {
+          btn.style.transform = '';
+          btn.style.filter = '';
+        };
+        btn.addEventListener('mouseup', resetStyles);
+        btn.addEventListener('mouseleave', resetStyles);
+      });
+    }
+  },
+
+  // ---------------------------------
+  // 10. UTILITIES
+  // ---------------------------------
+  Util: {
+    getVal: function (id) {
+      const el = document.getElementById(id);
+      return el ? el.value : "";
+    },
+    setVal: function (id, val) {
+      const el = document.getElementById(id);
+      if (el) el.value = val;
+    },
+    escapeHtml: function (str) {
+      if (!str) return "";
+      return str.replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[m]));
     }
   }
 };

@@ -810,35 +810,41 @@
 
   <!-- Chatbot Modal -->
   <div id="chatbotModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="chatbot-title">
-    <div class="modal-content" style="max-width:480px;">
+    <div class="modal-content" style="max-width:520px;">
       <span class="close" onclick="if(window.App&&window.App.Chatbot) App.Chatbot.close()">&times;</span>
-      <h2 id="chatbot-title"><i class="fas fa-robot" style="color:#38bdf8;font-size:1.2rem;"></i> AI Travel Assistant</h2>
+      <div class="chatbot-header">
+        <div class="chatbot-title-block">
+          <div class="chatbot-avatar"><i class="fas fa-robot"></i></div>
+          <div>
+            <h2 id="chatbot-title">AI Travel Assistant</h2>
+            <p class="chatbot-subtitle">Your smart travel companion for India—now with real AI support.</p>
+          </div>
+        </div>
+        <span class="chatbot-badge">{{ ai_platform + ' Connected' if ai_enabled else 'AI Offline' }}</span>
+      </div>
+      <div class="assistant-status">
+        <span class="status-dot {{ 'online' if ai_enabled else 'offline' }}"></span>
+        {{ 'External AI is connected. Ask anything!' if ai_enabled else 'No AI key configured yet. Set HF_API_KEY or OPENAI_API_KEY to enable real AI.' }}
+      </div>
+      <div class="assistant-note">Try: "Best place to visit in summer", "How to reach Leh?", "What should I pack for Goa in June?"</div>
       <div class="chat-window" id="chatWindow">
         <div class="chat-message bot">
           <p>👋 Hi! I'm your <b>AI Travel Assistant</b>.<br><br>
-          Ask me anything about travel! For example:
-          <ul style="margin:8px 0 0;padding-left:18px;line-height:1.9;font-size:0.88rem;">
-            <li>"Find nearest hospital"</li>
-            <li>"Tell me about Goa"</li>
-            <li>"What should I pack for Kerala?"</li>
-            <li>"Budget tips for India"</li>
-            <li>"Best time to visit Rajasthan"</li>
-          </ul>
-          </p>
+          Ask me anything about travel, destinations, or general topics. If external AI is enabled, I can answer broader questions too.</p>
         </div>
         <div class="chat-message bot typing" id="bot-typing-indicator" style="display:none;">
           <p><span></span><span></span><span></span></p>
         </div>
       </div>
       <div class="chat-input-area">
-        <input type="text" id="chatInput" placeholder="Ask anything about travel…" autocomplete="off">
+        <input type="text" id="chatInput" placeholder="Ask anything about travel or general topics…" autocomplete="off">
         <button id="chatSendBtn"><i class="fas fa-paper-plane"></i></button>
       </div>
     </div>
   </div>
 
   <!-- Chatbot Float Button -->
-  <div id="chatbot-float-btn" onclick="if(window.App&&window.App.Chatbot) App.Chatbot.open()" title="Open AI Assistant">
+  <div id="chatbot-float-btn" class="anim-wave" onclick="if(window.App&&window.App.Chatbot) App.Chatbot.open()" title="Open AI Assistant">
     <i class="fas fa-robot"></i>
   </div>
 
