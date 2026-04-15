@@ -3,268 +3,751 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard - Smart Budget Travel Planner</title>
-  
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
+  <title>Dashboard — Smart Budget Travel Planner</title>
+  <meta name="description" content="Your Smart Budget Travel Planner dashboard — manage trips, track budgets, explore attractions and more.">
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+  <style>
+    /* ── DASHBOARD-SPECIFIC EXTRAS ── */
+
+    /* Sliding page transition overlay */
+    #page-transition {
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(135deg, #050a14 0%, #0d1526 100%);
+      z-index: 99999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: pageReveal 0.8s cubic-bezier(0.77,0,0.18,1) 0.1s forwards;
+    }
+    #page-transition .loader-logo {
+      font-size: 2.5rem;
+      animation: loaderSpin 0.9s ease-in-out infinite;
+    }
+    @keyframes pageReveal {
+      0%   { transform: translateX(0);    opacity: 1; }
+      100% { transform: translateX(-100%); opacity: 0; pointer-events: none; }
+    }
+    @keyframes loaderSpin {
+      0%,100% { transform: scale(1) rotate(0deg);   }
+      50%      { transform: scale(1.15) rotate(180deg); }
+    }
+
+    /* Animated top bar over nav */
+    .nav-top-accent {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, #38bdf8, #818cf8, #34d399, #38bdf8);
+      background-size: 300% 100%;
+      animation: accentSlide 4s linear infinite;
+      z-index: 1001;
+    }
+    @keyframes accentSlide {
+      0%   { background-position: 0%   50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0%   50%; }
+    }
+
+    /* ─ Navbar extras  ─ */
+    .nav-pill-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(56,189,248,0.1);
+      border: 1px solid rgba(56,189,248,0.2);
+      border-radius: 99px;
+      padding: 3px 10px 3px 6px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #38bdf8;
+    }
+    .nav-pill-badge .dot {
+      width: 6px; height: 6px;
+      background: #34d399;
+      border-radius: 50%;
+      box-shadow: 0 0 6px #34d399;
+      animation: liveBlink 1.5s ease-in-out infinite;
+    }
+    @keyframes liveBlink {
+      0%,100% { opacity: 1; } 50% { opacity: 0.3; }
+    }
+
+    /* ─ Welcome section ─ */
+    .welcome-section {
+      text-align: center;
+      padding: 52px 36px 0;
+      animation: wFadeUp 0.9s cubic-bezier(0.2,0.8,0.2,1) 0.55s both;
+    }
+    @keyframes wFadeUp {
+      from { opacity:0; transform: translateY(28px); }
+      to   { opacity:1; transform: translateY(0); }
+    }
+
+    .welcome-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(56,189,248,0.08);
+      border: 1px solid rgba(56,189,248,0.18);
+      border-radius: 99px;
+      padding: 5px 16px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: rgba(56,189,248,0.9);
+      margin-bottom: 20px;
+      letter-spacing: 0.3px;
+    }
+
+    .welcome-section h2 {
+      font-size: clamp(1.8rem, 4vw, 3.2rem);
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      background: linear-gradient(135deg, #fff 30%, rgba(56,189,248,0.9) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 90vw;
+      margin-left: auto;
+      margin-right: auto;
+      margin-bottom: 10px;
+    }
+
+    .welcome-section .subtitle {
+      color: rgba(241,245,249,0.55);
+      font-size: 1.05rem;
+      margin-bottom: 44px;
+    }
+
+    /* ─ Feature Cards Grid ─ */
+    .cards-section {
+      padding: 0 36px 60px;
+    }
+
+    .cards-layout {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 960px) { .cards-layout { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 560px) { .cards-layout { grid-template-columns: 1fr; } }
+
+    /* ─ Enhanced Glass Card ─ */
+    .glass-card.option-card {
+      position: relative;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 18px;
+      padding: 28px 24px 24px;
+      text-align: left;
+      overflow: hidden;
+      cursor: pointer;
+
+      /* Entry */
+      opacity: 0;
+      transform: translateY(32px) scale(0.97);
+      animation: cardEntry 0.65s cubic-bezier(0.175,0.885,0.32,1.275) both;
+      transition:
+        transform 0.45s cubic-bezier(0.175,0.885,0.32,1.275),
+        background 0.35s ease,
+        border-color 0.35s ease,
+        box-shadow 0.45s ease;
+    }
+
+    @keyframes cardEntry {
+      to { opacity:1; transform: translateY(0) scale(1); }
+    }
+
+    .glass-card.option-card:nth-child(1) { animation-delay: 0.60s; }
+    .glass-card.option-card:nth-child(2) { animation-delay: 0.72s; }
+    .glass-card.option-card:nth-child(3) { animation-delay: 0.84s; }
+    .glass-card.option-card:nth-child(4) { animation-delay: 0.96s; }
+    .glass-card.option-card:nth-child(5) { animation-delay: 1.08s; }
+    .glass-card.option-card:nth-child(6) { animation-delay: 1.20s; }
+
+    /* Shimmer sweep */
+    .glass-card.option-card::after {
+      content: '';
+      position: absolute;
+      top: 0; left: -120%;
+      width: 55%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+      transition: left 0.65s ease;
+      pointer-events: none;
+    }
+    .glass-card.option-card:hover::after { left: 160%; }
+
+    /* Colored top accent strip */
+    .glass-card.option-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--card-accent, linear-gradient(90deg, #38bdf8, #818cf8));
+      opacity: 0;
+      transition: opacity 0.35s ease;
+      border-radius: 18px 18px 0 0;
+    }
+    .glass-card.option-card:hover::before { opacity: 1; }
+
+    .glass-card.option-card:hover {
+      transform: translateY(-8px) scale(1.02);
+      background: rgba(255,255,255,0.07);
+      border-color: rgba(56,189,248,0.22);
+      box-shadow:
+        0 20px 50px rgba(0,0,0,0.5),
+        0 0 0 1px rgba(56,189,248,0.08),
+        0 0 40px rgba(56,189,248,0.08);
+    }
+
+    /* Card icon box */
+    .glass-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 52px; height: 52px;
+      border-radius: 14px;
+      margin-bottom: 18px;
+      font-size: 1.35rem;
+      transition: transform 0.4s cubic-bezier(0.175,0.885,0.32,1.275), box-shadow 0.35s ease;
+    }
+    .glass-card:hover .glass-icon {
+      transform: scale(1.14) rotate(-6deg);
+    }
+
+    /* Color variants per card */
+    .glass-card.option-card[data-action="plan"]     { --card-accent: linear-gradient(90deg,#38bdf8,#0ea5e9); }
+    .glass-card.option-card[data-action="plan"]     .glass-icon { background: rgba(56,189,248,0.12); border:1px solid rgba(56,189,248,0.2); color:#38bdf8; box-shadow: 0 4px 16px rgba(56,189,248,0.15); }
+
+    .glass-card.option-card[data-action="budget"]   { --card-accent: linear-gradient(90deg,#34d399,#10b981); }
+    .glass-card.option-card[data-action="budget"]   .glass-icon { background: rgba(52,211,153,0.12); border:1px solid rgba(52,211,153,0.2); color:#34d399; box-shadow: 0 4px 16px rgba(52,211,153,0.15); }
+
+    .glass-card.option-card[data-action="nearby"]   { --card-accent: linear-gradient(90deg,#f97316,#fb923c); }
+    .glass-card.option-card[data-action="nearby"]   .glass-icon { background: rgba(249,115,22,0.12); border:1px solid rgba(249,115,22,0.2); color:#fb923c; box-shadow: 0 4px 16px rgba(249,115,22,0.15); }
+
+    .glass-card.option-card[data-action="live"]     { --card-accent: linear-gradient(90deg,#f43f5e,#fb7185); }
+    .glass-card.option-card[data-action="live"]     .glass-icon { background: rgba(244,63,94,0.12); border:1px solid rgba(244,63,94,0.2); color:#f43f5e; box-shadow: 0 4px 16px rgba(244,63,94,0.15); }
+
+    .glass-card.option-card[data-action="tips"]     { --card-accent: linear-gradient(90deg,#fbbf24,#f59e0b); }
+    .glass-card.option-card[data-action="tips"]     .glass-icon { background: rgba(251,191,36,0.12); border:1px solid rgba(251,191,36,0.2); color:#fbbf24; box-shadow: 0 4px 16px rgba(251,191,36,0.15); }
+
+    .glass-card.option-card[data-action="itinerary"]{ --card-accent: linear-gradient(90deg,#818cf8,#6366f1); }
+    .glass-card.option-card[data-action="itinerary"].glass-icon { background: rgba(129,140,248,0.12); border:1px solid rgba(129,140,248,0.2); color:#818cf8; box-shadow: 0 4px 16px rgba(129,140,248,0.15); }
+    .glass-card.option-card[data-action="itinerary"] .glass-icon { background: rgba(129,140,248,0.12); border:1px solid rgba(129,140,248,0.2); color:#818cf8; box-shadow: 0 4px 16px rgba(129,140,248,0.15); }
+
+    .glass-card h3 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin: 0 0 6px;
+      letter-spacing: -0.3px;
+      transition: color 0.2s;
+    }
+    .glass-card:hover h3 { color: #38bdf8; }
+    .glass-card p {
+      font-size: 0.86rem;
+      color: rgba(241,245,249,0.55);
+      line-height: 1.6;
+      margin: 0 0 18px;
+    }
+
+    /* Arrow CTA */
+    .card-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: rgba(56,189,248,0.7);
+      transition: gap 0.25s ease, color 0.2s;
+    }
+    .glass-card:hover .card-cta { gap: 9px; color: #38bdf8; }
+
+    /* ─ Stats strip ─ */
+    .stats-strip {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      padding: 20px 36px 44px;
+      animation: wFadeUp 0.8s ease 1.4s both;
+    }
+    .stat-item { text-align: center; }
+    .stat-item .val {
+      font-size: 1.9rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #38bdf8, #818cf8);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1;
+    }
+    .stat-item .lbl {
+      font-size: 0.72rem;
+      color: rgba(241,245,249,0.4);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-top: 4px;
+    }
+    .stat-divider {
+      width: 1px;
+      background: rgba(255,255,255,0.07);
+      align-self: stretch;
+    }
+
+    /* ─ Canvas background ─ */
+    #bgCanvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.6;
+    }
+
+    /* ─ Modal slide animations ─ */
+    /* Trip planner slides in from the right */
+    #tripPlannerModal .modal-content {
+      transform: translateX(80px) scale(0.97);
+    }
+    #tripPlannerModal.show .modal-content {
+      transform: translateX(0) scale(1);
+    }
+
+    /* My Trips slides up from bottom-right */
+    #myTripsModal .modal-content {
+      transform: translateY(60px) scale(0.96);
+    }
+    #myTripsModal.show .modal-content {
+      transform: translateY(0) scale(1);
+    }
+
+    /* Live track slides in from left */
+    #liveTrackSelectorModal .modal-content {
+      transform: translateX(-80px) scale(0.97);
+    }
+    #liveTrackSelectorModal.show .modal-content {
+      transform: translateX(0) scale(1);
+    }
+
+    /* Budget tracker slides in from bottom */
+    #budgetTrackerModal .modal-content {
+      transform: translateY(80px) scale(0.96);
+    }
+    #budgetTrackerModal.show .modal-content {
+      transform: translateY(0) scale(1);
+    }
+
+    /* Itinerary modals standard scale */
+    #itinerarySelectorModal .modal-content,
+    #itineraryDisplayModal  .modal-content {
+      transform: scale(0.9) translateY(30px);
+    }
+    #itinerarySelectorModal.show .modal-content,
+    #itineraryDisplayModal.show  .modal-content {
+      transform: scale(1) translateY(0);
+    }
+
+    /* Chatbot slides from right-bottom corner */
+    #chatbotModal .modal-content {
+      transform: translateX(60px) translateY(40px) scale(0.95);
+    }
+    #chatbotModal.show .modal-content {
+      transform: translateX(0) translateY(0) scale(1);
+    }
+
+    /* Trip planner modal — larger */
+    #tripPlannerModal .modal-content { max-width: 560px; }
+
+    /* ─ Toast from left ─ */
+    .custom-toast { transform: translateX(-120%); }
+
+    /* ─ Section divider ─ */
+    .section-label {
+      text-align: center;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: rgba(241,245,249,0.3);
+      margin-bottom: 20px;
+    }
+
+    /* ─ Itinerary display ─ */
+    #itineraryDisplayModal .modal-content { max-width: 700px; }
+
+    /* ─ Responsive extras ─ */
+    @media (max-width: 768px) {
+      .welcome-section { padding: 28px 18px 0; }
+      .cards-section   { padding: 0 14px 40px; }
+      .stats-strip     { gap: 20px; padding: 14px 18px 32px; }
+      .stat-item .val  { font-size: 1.4rem; }
+    }
+
+    /* ─ Footer link ─ */
+    .footer-link {
+      position: fixed;
+      bottom: 12px;
+      left: 18px;
+      font-size: 0.72rem;
+      z-index: 100;
+      color: rgba(241,245,249,0.3);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .footer-link:hover { color: rgba(56,189,248,0.7); }
+  </style>
 </head>
 <body class="dashboard">
-  <!-- 3D Animated Background Canvas -->
-  <canvas id="bgCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;"></canvas>
 
+  <!-- Page slide-in transition -->
+  <div id="page-transition">
+    <span class="loader-logo">✈️</span>
+  </div>
+
+  <!-- Animated top accent line -->
+  <div class="nav-top-accent"></div>
+
+  <!-- 3D Particle Background -->
+  <canvas id="bgCanvas"></canvas>
+
+  <!-- ═══════════════ NAVIGATION ═══════════════ -->
   <nav class="top-nav">
     <div class="nav-logo">
       <img src="https://cdn-icons-png.flaticon.com/512/744/744502.png" alt="Logo">
-      <h1>Smart Budget Travel Planner</h1>
+      <h1>Smart Budget Travel</h1>
     </div>
+
     <ul>
-      <li><a href="#" data-action="my-trips">My Trips</a></li>
-      <li><a href="#" data-action="budget">Budget Planner</a></li>
-      <li><a href="{{ url_for('logout') }}" class="logout-btn">Logout</a></li>
+      <li>
+        <span class="nav-pill-badge">
+          <span class="dot"></span>
+          Live
+        </span>
+      </li>
+      <li><a href="#" data-action="my-trips"><i class="fas fa-suitcase-rolling"></i> My Trips</a></li>
+      <li><a href="#" data-action="budget"><i class="fas fa-wallet"></i> Budget</a></li>
+      <li><a href="{{ url_for('logout') }}" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
     </ul>
   </nav>
 
-  <main class="dashboard-content">
-    <h2>Welcome Back, {{ user_name }}!</h2>
-    <p>Explore your trips and plan new adventures.</p>
+  <!-- ═══════════════ MAIN CONTENT ═══════════════ -->
+  <main>
+
+    <!-- Welcome Hero -->
+    <section class="welcome-section">
+      <div class="welcome-badge">
+        <i class="fas fa-star" style="font-size:0.7rem;"></i>
+        Smart Travel Dashboard
+      </div>
+      <h2>Welcome Back, {{ user_name }}!</h2>
+      <p class="subtitle">Plan smarter. Travel better. Track everything.</p>
+    </section>
+
+    <!-- Feature Cards -->
+    <section class="cards-section">
+      <p class="section-label">Choose a feature to get started</p>
 
       <div class="cards-layout cards">
 
-      <!-- 1. Plan Trip -->
-      <div class="glass-card card option-card" data-action="plan">
-        <div class="glass-icon"><i class="fas fa-map-marked-alt"></i></div>
-        <h3>Plan Trip</h3>
-        <p>Get a smart travel plan with destination, budget, and duration.</p>
-      </div>
+        <!-- 1. Plan Trip -->
+        <div class="glass-card card option-card" data-action="plan">
+          <div class="glass-icon"><i class="fas fa-map-marked-alt"></i></div>
+          <h3>Plan a Trip</h3>
+          <p>Get a smart travel plan with destination, budget, and route in seconds.</p>
+          <span class="card-cta">Get started <i class="fas fa-arrow-right"></i></span>
+        </div>
 
-      <!-- 2. Budget Tracker -->
-      <div class="glass-card card option-card" data-action="budget">
-        <div class="glass-icon"><i class="fas fa-wallet"></i></div>
-        <h3>Budget Tracker</h3>
-        <p>Track expenses and save smartly while traveling.</p>
-      </div>
+        <!-- 2. Budget Tracker -->
+        <div class="glass-card card option-card" data-action="budget">
+          <div class="glass-icon"><i class="fas fa-wallet"></i></div>
+          <h3>Budget Tracker</h3>
+          <p>Track expenses and manage your travel wallet with AI-powered insights.</p>
+          <span class="card-cta">Open tracker <i class="fas fa-arrow-right"></i></span>
+        </div>
 
-      <!-- 3. Nearby Attractions -->
-      <div class="glass-card card option-card" data-action="nearby">
-        <div class="glass-icon"><i class="fas fa-map-pin"></i></div>
-        <h3>Nearby Attractions</h3>
-        <p>Get real-time recommendations for popular places nearby.</p>
-      </div>
+        <!-- 3. Nearby Attractions -->
+        <div class="glass-card card option-card" data-action="nearby">
+          <div class="glass-icon"><i class="fas fa-map-pin"></i></div>
+          <h3>Nearby Attractions</h3>
+          <p>Discover popular places, landmarks, and hidden gems around you.</p>
+          <span class="card-cta">Explore now <i class="fas fa-arrow-right"></i></span>
+        </div>
 
-      <!-- 4. Live Tracker -->
-      <div class="glass-card card option-card" data-action="live">
-        <div class="glass-icon"><i class="fas fa-location-arrow"></i></div>
-        <h3>Live Tracker</h3>
-        <p>Track your real-time location and route progress easily.</p>
-      </div>
+        <!-- 4. Live Tracker -->
+        <div class="glass-card card option-card" data-action="live">
+          <div class="glass-icon"><i class="fas fa-location-arrow"></i></div>
+          <h3>Live Tracker</h3>
+          <p>Real-time GPS tracking with ML-powered ETA and route optimization.</p>
+          <span class="card-cta">Start tracking <i class="fas fa-arrow-right"></i></span>
+        </div>
 
-      <!-- 5. Travel Tips -->
-      <div class="glass-card card option-card" data-action="tips">
-        <div class="glass-icon"><i class="fas fa-star"></i></div>
-        <h3>Travel Tips</h3>
-        <p>Get safety advice and best tips for smooth travel experiences.</p>
-      </div>
+        <!-- 5. Travel Tips -->
+        <div class="glass-card card option-card" data-action="tips">
+          <div class="glass-icon"><i class="fas fa-star"></i></div>
+          <h3>Travel Tips</h3>
+          <p>Safety advice, packing lists, and expert tips for a smooth journey.</p>
+          <span class="card-cta">View tips <i class="fas fa-arrow-right"></i></span>
+        </div>
 
-      <!-- 6. Itineraries (NEW) -->
-      <div class="glass-card card option-card" data-action="itinerary" style="cursor: pointer;">
-        <div class="glass-icon"><i class="fas fa-calendar-alt"></i></div>
-        <h3>Trip Itineraries</h3>
-        <p>Generate daily smart itineraries.</p>
-      </div>
+        <!-- 6. Itineraries -->
+        <div class="glass-card card option-card" data-action="itinerary" style="cursor:pointer;">
+          <div class="glass-icon"><i class="fas fa-calendar-alt"></i></div>
+          <h3>Trip Itineraries</h3>
+          <p>Auto-generate day-by-day itineraries with maps and attraction info.</p>
+          <span class="card-cta">Build itinerary <i class="fas fa-arrow-right"></i></span>
+        </div>
 
+      </div>
+    </section>
+
+    <!-- Stats Strip -->
+    <div class="stats-strip">
+      <div class="stat-item">
+        <div class="val">AI</div>
+        <div class="lbl">Budget Engine</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <div class="val">Live</div>
+        <div class="lbl">GPS Tracking</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <div class="val">Wiki</div>
+        <div class="lbl">Itineraries</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <div class="val">ML</div>
+        <div class="lbl">ETA Prediction</div>
+      </div>
     </div>
-    
+
     <div style="display:none;" id="trips"></div>
   </main>
 
-  <!-- EXISTING MODALS -->
+  <!-- ═══════════ MODALS ═══════════ -->
+
+  <!-- Trip Planner Modal -->
   <div id="tripPlannerModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="planner-title">
     <div class="modal-content">
       <span class="close" onclick="closeTripPlanner()">&times;</span>
-      <h2 id="planner-title">Plan Your Trip</h2>
-      
+      <h2 id="planner-title"><i class="fas fa-map-marked-alt" style="color:#38bdf8;font-size:1.2rem;"></i> Plan Your Trip</h2>
+
       <div id="route-summary" style="display:none;">
         <p><strong>Remaining:</strong> <span id="route-dist">...</span></p>
         <p><strong>Est. Arrival:</strong> <span id="route-eta">...</span></p>
-        <button type="button" id="recalculate-route-btn" class="btn-recalculate" onclick="if(window.App && window.App.Track) App.Track.recalculateRoute()">
-            <i class="fas fa-sync-alt"></i> Recalculate Route
+        <button type="button" id="recalculate-route-btn" class="btn-recalculate" onclick="if(window.App&&window.App.Track) App.Track.recalculateRoute()">
+          <i class="fas fa-sync-alt"></i> Recalculate Route
         </button>
       </div>
 
       <div id="trip-planner-fields">
-      <label for="start_location">Start Location:</label>
-      <input type="text" id="start_location" placeholder="Enter starting point">
-      <ul id="start_suggestions"></ul>
+        <label for="start_location">Start Location</label>
+        <input type="text" id="start_location" placeholder="Enter starting point">
+        <ul id="start_suggestions"></ul>
 
-      <label for="destination">Destination:</label>
-      <input type="text" id="destination" placeholder="Enter destination">
-      <ul id="dest_suggestions"></ul>
+        <label for="destination">Destination</label>
+        <input type="text" id="destination" placeholder="Enter destination">
+        <ul id="dest_suggestions"></ul>
 
-      <input type="hidden" id="start_lat" />
-      <input type="hidden" id="start_lon" />
-      <input type="hidden" id="latitude" />
-      <input type="hidden" id="longitude" />
+        <input type="hidden" id="start_lat">
+        <input type="hidden" id="start_lon">
+        <input type="hidden" id="latitude">
+        <input type="hidden" id="longitude">
 
-      <label for="trip_name">Trip Name:</label>
-      <input type="text" id="trip_name">
-      
-      <div class="form-row">
-        <div>
-          <label for="start_date">Start Date:</label>
-          <input type="date" id="start_date">
-        </div>
-        <div>
-          <label for="end_date">End Date:</label>
-          <input type="date" id="end_date">
-        </div>
-      </div>
-      
-      <div class="budget-calculator">
-        <h4>Smart Budget Calculator</h4>
+        <label for="trip_name">Trip Name</label>
+        <input type="text" id="trip_name" placeholder="Give your trip a name">
+
         <div class="form-row">
+          <div>
+            <label for="start_date">Start Date</label>
+            <input type="date" id="start_date">
+          </div>
+          <div>
+            <label for="end_date">End Date</label>
+            <input type="date" id="end_date">
+          </div>
+        </div>
+
+        <!-- Smart Budget Calculator -->
+        <div class="budget-calculator">
+          <h4><i class="fas fa-calculator"></i> Smart Budget Calculator</h4>
+
+          <div class="form-row">
             <div>
-                <label>Traveler Type</label>
-                <div class="radio-group">
-                    <input type="radio" id="solo" name="traveler_type" value="solo" checked>
-                    <label for="solo">Solo</label>
-                    <input type="radio" id="group" name="traveler_type" value="group">
-                    <label for="group">Group</label>
-                </div>
+              <label>Traveler Type</label>
+              <div class="radio-group">
+                <input type="radio" id="solo" name="traveler_type" value="solo" checked>
+                <label for="solo">Solo</label>
+                <input type="radio" id="group" name="traveler_type" value="group">
+                <label for="group">Group</label>
+              </div>
             </div>
             <div id="group_size_wrapper" style="display:none;">
-                <label for="group_size">How many?</label>
-                <input type="number" id="group_size" value="2" min="2">
+              <label for="group_size">How many?</label>
+              <input type="number" id="group_size" value="2" min="2">
             </div>
-        </div>
-        <div class="form-row">
+            <div style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
+              <input type="checkbox" id="is_family" style="width: auto; margin: 0;">
+              <label for="is_family" style="margin: 0; font-size: 0.85rem; color: #38bdf8;">👨‍👩‍👧‍👦 Travelling with Family? (Special Discount)</label>
+            </div>
+          </div>
+
+          <div class="form-row">
             <div>
-                <label>Travel Style</label>
-                <div class="radio-group">
-                    <input type="radio" id="budget_style" name="travel_style" value="budget" checked>
-                    <label for="budget_style">Budget</label>
-                    <input type="radio" id="mid_style" name="travel_style" value="mid">
-                    <label for="mid_style">Mid-range</label>
-                    <input type="radio" id="luxury_style" name="travel_style" value="luxury">
-                    <label for="luxury_style">Luxury</label>
-                </div>
+              <label>Travel Style</label>
+              <div class="radio-group">
+                <input type="radio" id="budget_style" name="travel_style" value="budget" checked>
+                <label for="budget_style">Budget</label>
+                <input type="radio" id="mid_style" name="travel_style" value="mid">
+                <label for="mid_style">Mid-range</label>
+                <input type="radio" id="luxury_style" name="travel_style" value="luxury">
+                <label for="luxury_style">Luxury</label>
+              </div>
             </div>
-        </div>
-        <div class="form-row">
+          </div>
+
+          <div class="form-row">
             <div>
-                <label>🍽️ Meal Preference</label>
-                <div class="radio-group" style="flex-wrap:wrap;gap:8px;">
-                    <input type="radio" id="food_dhaba" name="food_type" value="dhaba" checked>
-                    <label for="food_dhaba">🛖 Dhaba</label>
-                    <input type="radio" id="food_veg_thali" name="food_type" value="veg_thali">
-                    <label for="food_veg_thali">🥗 Veg Thali</label>
-                    <input type="radio" id="food_nonveg_thali" name="food_type" value="nonveg_thali">
-                    <label for="food_nonveg_thali">🍗 Non-veg Thali</label>
-                    <input type="radio" id="food_local" name="food_type" value="local_cuisine">
-                    <label for="food_local">🍛 Local Cuisine</label>
-                    <input type="radio" id="food_restaurant" name="food_type" value="restaurant">
-                    <label for="food_restaurant">🍽️ Restaurant</label>
-                    <input type="radio" id="food_buffet" name="food_type" value="hotel_buffet">
-                    <label for="food_buffet">🥘 Hotel Buffet</label>
-                </div>
+              <label>🍽️ Meal Preference</label>
+              <div class="radio-group">
+                <input type="radio" id="food_dhaba" name="food_type" value="dhaba" checked>
+                <label for="food_dhaba">🛖 Dhaba</label>
+                <input type="radio" id="food_veg_thali" name="food_type" value="veg_thali">
+                <label for="food_veg_thali">🥗 Veg Thali</label>
+                <input type="radio" id="food_nonveg_thali" name="food_type" value="nonveg_thali">
+                <label for="food_nonveg_thali">🍗 Non-veg</label>
+                <input type="radio" id="food_local" name="food_type" value="local_cuisine">
+                <label for="food_local">🍛 Local</label>
+                <input type="radio" id="food_restaurant" name="food_type" value="restaurant">
+                <label for="food_restaurant">🍽️ Restaurant</label>
+                <input type="radio" id="food_buffet" name="food_type" value="hotel_buffet">
+                <label for="food_buffet">🥘 Buffet</label>
+              </div>
             </div>
-        </div>
-        <div class="form-row">
+          </div>
+
+          <div class="form-row">
             <div>
-                <label>🏨 Stay Type</label>
-                <div class="radio-group" style="flex-wrap:wrap;gap:8px;">
-                    <input type="radio" id="stay_friend" name="stay_type" value="friend_house">
-                    <label for="stay_friend">🏠 Friend/Family (Free)</label>
-                    <input type="radio" id="stay_hostel" name="stay_type" value="hostel">
-                    <label for="stay_hostel">🛏️ Hostel / Ashram</label>
-                    <input type="radio" id="stay_budget_hotel" name="stay_type" value="budget_hotel" checked>
-                    <label for="stay_budget_hotel">🏩 Budget Hotel / Guesthouse</label>
-                    <input type="radio" id="stay_3star" name="stay_type" value="3star_hotel">
-                    <label for="stay_3star">⭐ 3-Star Hotel</label>
-                    <input type="radio" id="stay_5star" name="stay_type" value="5star_hotel">
-                    <label for="stay_5star">⭐⭐ 5-Star Hotel</label>
-                    <input type="radio" id="stay_resort" name="stay_type" value="resort">
-                    <label for="stay_resort">🏖️ Resort / Villa</label>
-                    <input type="radio" id="stay_camping" name="stay_type" value="camping">
-                    <label for="stay_camping">⛺ Camping / Tent</label>
-                </div>
+              <label>🏨 Stay Type</label>
+              <div class="radio-group">
+                <input type="radio" id="stay_home" name="stay_type" value="home">
+                <label for="stay_home">🏠 Home / Family Stay</label>
+                <input type="radio" id="stay_friend" name="stay_type" value="friend_house">
+                <label for="stay_friend">🏠 Friend's House</label>
+                <input type="radio" id="stay_hostel" name="stay_type" value="hostel">
+                <label for="stay_hostel">🛏️ Hostel</label>
+                <input type="radio" id="stay_budget_hotel" name="stay_type" value="budget_hotel" checked>
+                <label for="stay_budget_hotel">🏩 Budget Hotel</label>
+                <input type="radio" id="stay_3star" name="stay_type" value="3star_hotel">
+                <label for="stay_3star">⭐ 3-Star</label>
+                <input type="radio" id="stay_5star" name="stay_type" value="5star_hotel">
+                <label for="stay_5star">⭐⭐ 5-Star</label>
+                <input type="radio" id="stay_resort" name="stay_type" value="resort">
+                <label for="stay_resort">🏖️ Resort</label>
+                <input type="radio" id="stay_camping" name="stay_type" value="camping">
+                <label for="stay_camping">⛺ Camping</label>
+              </div>
             </div>
+          </div>
+
+          <label for="budget">Estimated Budget (₹)</label>
+          <div class="input-with-button">
+            <input type="number" id="budget" placeholder="Click 'Calculate' to estimate">
+            <button type="button" class="btn-estimate" onclick="if(window.App&&window.App.Budget) App.Budget.estimateBudget()">
+              <i class="fas fa-calculator"></i> Calculate
+            </button>
+          </div>
         </div>
-        <label for="budget">Estimated Budget (₹)</label>
-        <div class="input-with-button">
-          <input type="number" id="budget" placeholder="Click 'Calculate' to estimate">
-          <button type="button" class="btn-estimate" onclick="if(window.App && window.App.Budget) App.Budget.estimateBudget()">Calculate</button>
+
+        <div class="modal-buttons">
+          <button type="button" onclick="addTrip()" style="background:linear-gradient(135deg,#38bdf8,#818cf8);color:#000;">
+            <i class="fas fa-plus"></i> Add Trip
+          </button>
+          <button type="button" onclick="clearTripForm()" class="btn-close" style="background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.25);color:#fbbf24;">
+            🗑️ Clear
+          </button>
+          <button type="button" onclick="closeTripPlanner()" class="btn-close">
+            Close
+          </button>
         </div>
-      </div>
-      <div class="modal-buttons">
-        <button type="button" onclick="addTrip()">Add Trip</button>
-        <button type="button" onclick="clearTripForm()" class="btn-close" style="background: rgba(255,165,0,0.15); border-color: rgba(255,165,0,0.4); color: #ffa500;">🗑️ Clear</button>
-        <button type="button" onclick="closeTripPlanner()" class="btn-close">Close</button>
-      </div>
       </div>
 
-      <div style="position: relative;">
-          <div id="map"></div>
-          <!-- Custom ML ETA Floating Box (Moved outside #map so Leaflet doesn't destroy it) -->
-          <div id="route-summary-live" style="display:none; position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 1000; background: rgba(10, 15, 20, 0.85); padding: 15px 25px; border-radius: 15px; backdrop-filter: blur(15px); color: white; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.7); border: 1px solid rgba(255,255,255,0.1); width: 90%; max-width: 400px; pointer-events: none;">
-              <div style="font-size: 0.9rem; margin-bottom: 5px; color: #ccc;">📍 Distance left: <span id="route-dist-live" style="font-weight: bold; color: var(--color-primary);">-- km</span></div>
-              <div style="font-size: 1.1rem; font-weight: bold; line-height: 1.4;">
-                 Arrival Date & Time:<br>
-                 <span id="route-eta-live" style="color: #49d861; font-size: 1.25rem;">--</span>
-              </div>
+      <!-- Map -->
+      <div style="position:relative;">
+        <div id="map"></div>
+        <div id="route-summary-live" style="display:none;position:absolute;bottom:22px;left:50%;transform:translateX(-50%);z-index:1000;background:rgba(5,10,20,0.88);padding:14px 24px;border-radius:16px;backdrop-filter:blur(20px);color:white;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.7);border:1px solid rgba(255,255,255,0.08);width:90%;max-width:380px;pointer-events:none;">
+          <div style="font-size:0.82rem;margin-bottom:5px;color:#94a3b8;">📍 Distance left: <span id="route-dist-live" style="font-weight:700;color:#38bdf8;">-- km</span></div>
+          <div style="font-size:1rem;font-weight:700;line-height:1.4;">
+            Arrival Date &amp; Time:<br>
+            <span id="route-eta-live" style="color:#34d399;font-size:1.15rem;">--</span>
           </div>
+        </div>
       </div>
     </div>
   </div>
 
+  <!-- Live Tracker Selector Modal -->
   <div id="liveTrackSelectorModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="live-selector-title">
     <div class="modal-content">
-      <span class="close" onclick="if(window.App && window.App.Track) App.Track.closeTripSelector()">&times;</span>
-      <h2 id="live-selector-title" style="margin-bottom: 5px;">Select a Trip to Track</h2>
-      <p style="opacity: 0.8; margin-top: 0;">Choose any of your planned trips to start live tracking.</p>
-      
-      <div style="margin: 15px 0; text-align: left;">
-          <label for="live_weather" style="font-weight: bold; font-size: 0.9rem;">🚗 Weather Conditions (For ML ETA):</label>
-          <select id="live_weather" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-family: 'Plus Jakarta Sans', sans-serif; background: rgba(255,255,255,0.9); margin-top: 5px;">
-              <option value="clear">☀️ Clear / Dry</option>
-              <option value="rain">🌧️ Rain / Wet Roads</option>
-              <option value="fog">🌫️ Fog / Low Visibility</option>
-              <option value="snow">❄️ Snow / Ice</option>
-          </select>
-          <div style="font-size: 0.8rem; color: #555; margin-top: 4px; display: flex; align-items: center; gap: 5px;">
-              <span style="display:inline-block; width:8px; height:8px; background:#49d861; border-radius:50%;"></span>
-              Day curve (Weekend vs Weekday) auto-calculated by system clock.
-          </div>
+      <span class="close" onclick="if(window.App&&window.App.Track) App.Track.closeTripSelector()">&times;</span>
+      <h2 id="live-selector-title"><i class="fas fa-location-arrow" style="color:#f43f5e;font-size:1.2rem;"></i> Select Trip to Track</h2>
+      <p style="color:rgba(241,245,249,0.5);font-size:0.88rem;margin-top:-12px;margin-bottom:18px;">Choose any planned trip to begin live GPS tracking.</p>
+
+      <div style="margin:0 0 16px;">
+        <label for="live_weather" style="font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:rgba(241,245,249,0.5);">🚗 Weather Conditions (For ML ETA)</label>
+        <select id="live_weather" style="width:100%;padding:11px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);font-family:inherit;background:rgba(255,255,255,0.05);color:#f1f5f9;margin-top:8px;font-size:0.9rem;">
+          <option value="clear">☀️ Clear / Dry</option>
+          <option value="rain">🌧️ Rain / Wet Roads</option>
+          <option value="fog">🌫️ Fog / Low Visibility</option>
+          <option value="snow">❄️ Snow / Ice</option>
+        </select>
+        <div style="font-size:0.76rem;color:#64748b;margin-top:6px;display:flex;align-items:center;gap:6px;">
+          <span style="width:6px;height:6px;background:#34d399;border-radius:50%;display:inline-block;box-shadow:0 0 6px #34d399;"></span>
+          Day curve (Weekend vs Weekday) auto-calculated by system clock.
+        </div>
       </div>
 
-      <ul id="liveTrackTripsList" class="my-trips-list-container" style="max-height: 400px; overflow-y: auto;">
-        <li>Loading your trips...</li>
+      <ul id="liveTrackTripsList" class="my-trips-list-container" style="max-height:360px;overflow-y:auto;background:rgba(0,0,0,0.15);padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,0.06);">
+        <li style="padding:14px;opacity:0.5;text-align:center;">Loading your trips…</li>
       </ul>
+
       <div class="modal-buttons text-center">
-        <button type="button" onclick="if(window.App && window.App.Track) App.Track.closeTripSelector()" class="btn-close">Cancel</button>
+        <button type="button" onclick="if(window.App&&window.App.Track) App.Track.closeTripSelector()" class="btn-close">Cancel</button>
       </div>
     </div>
   </div>
 
-  <div id="budgetTrackerModal" class="modal" role="dialog" aria-modal="true" aria-label="Feature Modal">
+  <!-- Budget Tracker Modal -->
+  <div id="budgetTrackerModal" class="modal" role="dialog" aria-modal="true" aria-label="Budget Tracker">
     <div class="modal-content">
-      <span class="close" onclick="if(window.App && window.App.Budget) App.Budget.closeBudgetTracker()">&times;</span>
+      <span class="close" onclick="if(window.App&&window.App.Budget) App.Budget.closeBudgetTracker()">&times;</span>
       <div id="budgetTrackerModalContent"></div>
     </div>
   </div>
 
-  <!-- ITINERARY SELECTOR MODAL -->
+  <!-- Itinerary Selector Modal -->
   <div id="itinerarySelectorModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="itinerary-selector-title">
     <div class="modal-content">
       <span class="close" onclick="App.Itinerary.closeSelector()">&times;</span>
-      <h2 id="itinerary-selector-title" style="margin-bottom: 5px;">🗺️ Build Trip Itinerary</h2>
-      <p style="opacity: 0.8; margin-top: 0;">Select a saved trip to auto-generate a day-by-day itinerary.</p>
-      
-      <ul id="itineraryTripsList" class="my-trips-list-container" style="max-height: 400px; overflow-y: auto; margin-top: 15px; list-style:none; padding:0; margin:15px 0 0;">
-        <li style="padding:12px;opacity:0.7;">⏳ Loading your trips…</li>
+      <h2 id="itinerary-selector-title"><i class="fas fa-calendar-alt" style="color:#818cf8;font-size:1.2rem;"></i> Build Trip Itinerary</h2>
+      <p style="color:rgba(241,245,249,0.5);font-size:0.88rem;margin-top:-12px;margin-bottom:18px;">Select a saved trip to auto-generate a day-by-day itinerary.</p>
+      <ul id="itineraryTripsList" class="my-trips-list-container" style="max-height:380px;overflow-y:auto;list-style:none;padding:10px;margin:0;background:rgba(0,0,0,0.15);border-radius:12px;border:1px solid rgba(255,255,255,0.06);">
+        <li style="padding:14px;opacity:0.5;text-align:center;">⏳ Loading your trips…</li>
       </ul>
       <div class="modal-buttons text-center">
         <button type="button" onclick="App.Itinerary.closeSelector()" class="btn-close">Cancel</button>
@@ -272,190 +755,177 @@
     </div>
   </div>
 
-  <!-- ITINERARY DISPLAY MODAL -->
+  <!-- Itinerary Display Modal -->
   <div id="itineraryDisplayModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="itinerary-title">
-    <div class="modal-content" style="max-width: 700px;">
+    <div class="modal-content" style="max-width:700px;">
       <span class="close" onclick="App.Itinerary.closeDisplay()">&times;</span>
-      <h2 id="itinerary-title" style="margin-bottom: 5px;">📅 Your Itinerary</h2>
-      <p style="color: rgba(255,255,255,0.6); margin-top: 0; font-size: 0.9em;" id="itinerary-subtitle"></p>
-      
-      <div id="itinerary-container" style="margin-top: 20px; overflow-y: auto; max-height: 62vh; padding-right: 10px;">
-          <!-- Timeline content goes here -->
-      </div>
-      
-      <div class="modal-buttons text-center" style="margin-top: 20px;">
+      <h2 id="itinerary-title"><i class="fas fa-route" style="color:#818cf8;font-size:1.2rem;"></i> Your Itinerary</h2>
+      <p style="color:rgba(241,245,249,0.4);font-size:0.88rem;margin-top:-16px;" id="itinerary-subtitle"></p>
+      <div id="itinerary-container" style="margin-top:20px;overflow-y:auto;max-height:62vh;padding-right:6px;"></div>
+      <div class="modal-buttons text-center" style="margin-top:18px;">
         <button type="button" onclick="App.Itinerary.closeDisplay()" class="btn-close">Close</button>
       </div>
     </div>
   </div>
 
+  <!-- My Trips Modal -->
   <div id="myTripsModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="my-trips-title">
     <div class="modal-content wide">
       <span class="close" onclick="closeMyTripsModal()">&times;</span>
-      <h2 id="my-trips-title">My Trips</h2>
-      <p style="text-align: center; margin-top: -15px; margin-bottom: 20px; opacity: 0.8;">Select a trip to track, edit, or manage its budget.</p>
-      
+      <h2 id="my-trips-title"><i class="fas fa-suitcase-rolling" style="color:#38bdf8;font-size:1.2rem;"></i> My Trips</h2>
+      <p style="text-align:center;margin-top:-14px;margin-bottom:22px;color:rgba(241,245,249,0.5);font-size:0.88rem;">Select a trip to track, edit, or manage its budget.</p>
+
       <div class="my-trips-layout">
         <div class="my-trips-list-container">
           <ul id="myTripsList"></ul>
         </div>
-
         <div class="my-trips-details">
           <div id="myTripsMap"></div>
-          <div id="editTripContainer" style="display: none;">
-            <h3>Edit Trip</h3>
-            <input type="hidden" id="edit_trip_id" />
+          <div id="editTripContainer" style="display:none;">
+            <h3 style="margin-bottom:16px;font-size:1rem;color:#38bdf8;">Edit Trip</h3>
+            <input type="hidden" id="edit_trip_id">
             <label for="edit_trip_name">Trip Name</label>
-            <input type="text" id="edit_trip_name" />
+            <input type="text" id="edit_trip_name">
             <label for="edit_destination">Destination</label>
-            <input type="text" id="edit_destination" />
-            <label for="edit_budget">Budget</label>
-            <input type="number" id="edit_budget" />
+            <input type="text" id="edit_destination">
+            <label for="edit_budget">Budget (₹)</label>
+            <input type="number" id="edit_budget">
             <label for="edit_latitude">Latitude</label>
-            <input type="text" id="edit_latitude" />
+            <input type="text" id="edit_latitude">
             <label for="edit_longitude">Longitude</label>
-            <input type="text" id="edit_longitude" />
+            <input type="text" id="edit_longitude">
             <div class="modal-buttons">
-              <button type="button" onclick="saveTripEdits()">Save</button>
+              <button type="button" onclick="saveTripEdits()" style="background:linear-gradient(135deg,#34d399,#10b981);color:#000;">Save Changes</button>
               <button type="button" onclick="closeEditPanel()" class="btn-close">Cancel</button>
             </div>
           </div>
         </div>
       </div>
-      
+
       <div class="modal-buttons text-center">
-         <button type="button" onclick="closeMyTripsModal()" class="btn-close">Close</button>
+        <button type="button" onclick="closeMyTripsModal()" class="btn-close">Close</button>
       </div>
     </div>
   </div>
-  
+
+  <!-- Chatbot Modal -->
   <div id="chatbotModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="chatbot-title">
-    <div class="modal-content">
-      <span class="close" onclick="if(window.App && window.App.Chatbot) App.Chatbot.close()">&times;</span>
-      <h2 id="chatbot-title">AI Assistant</h2>
+    <div class="modal-content" style="max-width:480px;">
+      <span class="close" onclick="if(window.App&&window.App.Chatbot) App.Chatbot.close()">&times;</span>
+      <h2 id="chatbot-title"><i class="fas fa-robot" style="color:#38bdf8;font-size:1.2rem;"></i> AI Travel Assistant</h2>
       <div class="chat-window" id="chatWindow">
         <div class="chat-message bot">
           <p>👋 Hi! I'm your <b>AI Travel Assistant</b>.<br><br>
-          I can answer <b>any travel question</b> you have — just type naturally! For example:<br>
-          <ul style="margin: 8px 0 0 0; padding-left: 18px; line-height: 1.8;">
+          Ask me anything about travel! For example:
+          <ul style="margin:8px 0 0;padding-left:18px;line-height:1.9;font-size:0.88rem;">
             <li>"Find nearest hospital"</li>
             <li>"Tell me about Goa"</li>
-            <li>"What should I pack?"</li>
+            <li>"What should I pack for Kerala?"</li>
             <li>"Budget tips for India"</li>
-            <li>"I need emergency help"</li>
-            <li>"Best time to visit Kerala"</li>
+            <li>"Best time to visit Rajasthan"</li>
           </ul>
           </p>
         </div>
-        <div class="chat-message bot typing" id="bot-typing-indicator" style="display: none;">
-            <p><span></span><span></span><span></span></p>
+        <div class="chat-message bot typing" id="bot-typing-indicator" style="display:none;">
+          <p><span></span><span></span><span></span></p>
         </div>
       </div>
       <div class="chat-input-area">
-        <input type="text" id="chatInput" placeholder="Type your message...">
+        <input type="text" id="chatInput" placeholder="Ask anything about travel…" autocomplete="off">
         <button id="chatSendBtn"><i class="fas fa-paper-plane"></i></button>
       </div>
     </div>
   </div>
 
-  <div id="chatbot-float-btn" onclick="if(window.App && window.App.Chatbot) App.Chatbot.open()" title="Open AI Assistant">
-      <i class="fas fa-robot"></i>
+  <!-- Chatbot Float Button -->
+  <div id="chatbot-float-btn" onclick="if(window.App&&window.App.Chatbot) App.Chatbot.open()" title="Open AI Assistant">
+    <i class="fas fa-robot"></i>
   </div>
 
-  <!-- Custom Toast Notifier & Global Fallbacks -->
+  <!-- Toast Container -->
   <div id="toast-container"></div>
+
+  <!-- Terms Link -->
+  <a class="footer-link" href="#" onclick="alert('Terms & Conditions:\n\n1. This app provides travel estimations using machine learning. Do not rely exclusively on this for critical timing.\n2. We are not liable for delayed trips or inaccurate geographic data.\n3. Stay safe and enjoy your travels!');return false;">
+    Terms &amp; Conditions
+  </a>
+
+  <!-- ═══════════════ SCRIPTS ═══════════════ -->
   <script>
+    // Global Toast & App fallback
     function showToast(message) {
       const container = document.getElementById('toast-container');
       const toast = document.createElement('div');
       toast.className = 'custom-toast';
-      toast.innerHTML = `<i class="fas fa-info-circle"></i> &nbsp; ${message}`;
+      toast.innerHTML = `<i class="fas fa-info-circle" style="color:#38bdf8;margin-right:8px;"></i>${message}`;
       container.appendChild(toast);
-      
       setTimeout(() => {
-          toast.classList.add('toast-fadeout');
-          setTimeout(() => toast.remove(), 500);
-      }, 3500);
+        toast.classList.add('toast-fadeout');
+        setTimeout(() => toast.remove(), 450);
+      }, 3600);
     }
 
-    // Create a placeholder for App if dashboard.js fails to load
     window.App = window.App || {
       Budget: {
-        closeBudgetTracker: function() { showToast('Warning: Budget module failed to load. Internal Error limit bypassed.'); },
-        estimateBudget: function() { showToast('Loading Budget Matrix. Please wait...'); }
+        closeBudgetTracker: () => showToast('Budget module — please wait…'),
+        estimateBudget:     () => showToast('Loading Budget Matrix…')
       },
       Chatbot: {
-        close: function() { console.warn('Chatbot module offline'); },
-        open: function() { showToast('Booting Artificial Intelligence Assistant. Please wait...'); }
+        close: () => {},
+        open:  () => showToast('Booting AI Assistant…')
       },
       Track: {
-        recalculateRoute: function() { showToast('Live routing tracking not currently active.'); }
+        recalculateRoute: () => showToast('Live routing not currently active.')
       }
     };
   </script>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
-
-  <!-- 3D Particle Animation -->
+  <!-- 3D Particle Background -->
   <script>
   (function() {
     const canvas = document.getElementById('bgCanvas');
     const ctx = canvas.getContext('2d');
     let W, H, particles = [], mouse = { x: -999, y: -999 };
 
-    function resize() {
-      W = canvas.width  = window.innerWidth;
-      H = canvas.height = window.innerHeight;
-    }
+    function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
     window.addEventListener('resize', resize);
     resize();
 
     window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
     window.addEventListener('mouseleave', () => { mouse.x = -999; mouse.y = -999; });
 
-    const COLORS = ['#00c6ff','#2575fc','#6a11cb','#ff416c','#49d861','#f9ca24'];
+    const COLORS = ['#38bdf8','#818cf8','#34d399','#a78bfa','#38bdf8'];
 
-    function Particle() {
-      this.reset = function() {
-        this.x   = Math.random() * W;
-        this.y   = Math.random() * H;
-        this.r   = Math.random() * 3 + 1;
-        this.ox  = this.x;
-        this.oy  = this.y;
-        this.vx  = (Math.random() - 0.5) * 0.6;
-        this.vy  = (Math.random() - 0.5) * 0.6;
-        this.col = COLORS[Math.floor(Math.random() * COLORS.length)];
-        this.alpha = Math.random() * 0.5 + 0.3;
-        this.pulse = Math.random() * Math.PI * 2;
-        this.pulseSpeed = 0.02 + Math.random() * 0.02;
-        /* 3-D depth illusion */
-        this.depth = Math.random() * 0.8 + 0.2;   /* 0.2 – 1.0 */
-        this.scale = this.depth;
+    function createParticle() {
+      return {
+        x: Math.random() * W, y: Math.random() * H,
+        r: Math.random() * 2.4 + 0.6,
+        vx: (Math.random() - 0.5) * 0.55, vy: (Math.random() - 0.5) * 0.55,
+        col: COLORS[Math.floor(Math.random() * COLORS.length)],
+        alpha: Math.random() * 0.45 + 0.2,
+        pulse: Math.random() * Math.PI * 2,
+        pulseSpeed: 0.016 + Math.random() * 0.014,
+        depth: Math.random() * 0.8 + 0.2,
       };
-      this.reset();
     }
 
-    /* Create particles */
-    const COUNT = Math.min(Math.floor(W * H / 8000), 160);
-    for (let i = 0; i < COUNT; i++) particles.push(new Particle());
+    const COUNT = Math.min(Math.floor(W * H / 9000), 130);
+    for (let i = 0; i < COUNT; i++) particles.push(createParticle());
 
-    /* Connection threshold */
-    const CONNECT = 130;
+    const CONNECT = 120;
 
     function draw() {
       ctx.clearRect(0, 0, W, H);
 
-      /* --- connections --- */
+      // Connections
       for (let i = 0; i < particles.length; i++) {
         for (let j = i + 1; j < particles.length; j++) {
           const a = particles[i], b = particles[j];
           const dx = a.x - b.x, dy = a.y - b.y;
           const dist = Math.sqrt(dx*dx + dy*dy);
           if (dist < CONNECT) {
-            const alpha = (1 - dist / CONNECT) * 0.18 * ((a.depth + b.depth) / 2);
-            ctx.strokeStyle = `rgba(0,198,255,${alpha})`;
-            ctx.lineWidth   = 0.6 * ((a.depth + b.depth) / 2);
+            ctx.strokeStyle = `rgba(56,189,248,${(1 - dist/CONNECT) * 0.12 * ((a.depth+b.depth)/2)})`;
+            ctx.lineWidth = 0.5 * ((a.depth+b.depth)/2);
             ctx.beginPath();
             ctx.moveTo(a.x, a.y);
             ctx.lineTo(b.x, b.y);
@@ -464,39 +934,32 @@
         }
       }
 
-      /* --- particles --- */
+      // Particles
       particles.forEach(p => {
         p.pulse += p.pulseSpeed;
-        const pulsed = p.r * p.scale * (1 + 0.3 * Math.sin(p.pulse));
+        const pulsed = p.r * p.depth * (1 + 0.25 * Math.sin(p.pulse));
 
-        /* Mouse repulsion */
         const mx = p.x - mouse.x, my = p.y - mouse.y;
         const md = Math.sqrt(mx*mx + my*my);
-        if (md < 120) {
-          const force = (1 - md / 120) * 2.5;
-          p.x += (mx / md) * force;
-          p.y += (my / md) * force;
+        if (md < 110) {
+          const force = (1 - md/110) * 2.2;
+          p.x += (mx/md) * force; p.y += (my/md) * force;
         }
 
-        /* Movement */
-        p.x += p.vx * p.depth;
-        p.y += p.vy * p.depth;
-
-        /* Wrap edges */
+        p.x += p.vx * p.depth; p.y += p.vy * p.depth;
         if (p.x < -10) p.x = W + 10;
         if (p.x > W+10) p.x = -10;
         if (p.y < -10) p.y = H + 10;
         if (p.y > H+10) p.y = -10;
 
-        /* Glow */
-        ctx.shadowBlur  = 12 * p.depth;
+        ctx.shadowBlur = 10 * p.depth;
         ctx.shadowColor = p.col;
         ctx.globalAlpha = p.alpha * p.depth;
-        ctx.fillStyle   = p.col;
+        ctx.fillStyle = p.col;
         ctx.beginPath();
         ctx.arc(p.x, p.y, pulsed, 0, Math.PI * 2);
         ctx.fill();
-        ctx.shadowBlur  = 0;
+        ctx.shadowBlur = 0;
         ctx.globalAlpha = 1;
       });
 
@@ -506,14 +969,10 @@
   })();
   </script>
 
-  <script src="{{ url_for('static', filename='js/chatbot.js') }}?v=3.6"></script>
-  <script src="{{ url_for('static', filename='js/dashboard.js') }}?v=3.6"></script>
-  <!-- Floating Terms & Conditions Link -->
-  <div style="position: fixed; bottom: 10px; left: 15px; font-size: 0.75rem; z-index: 1000;">
-      <a href="#" onclick="alert('Terms & Conditions:\n\n1. This app provides travel estimations using machine learning. Do not rely exclusively on this for critical timing.\n2. We are not liable for delayed trips or inaccurate Overpass API geographic data.\n3. Stay safe and enjoy your travels!')" style="color: rgba(255,255,255,0.6); text-decoration: none; font-family: 'Inter', sans-serif;">
-          Terms & Conditions
-      </a>
-  </div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
 
+  <script src="{{ url_for('static', filename='js/chatbot.js') }}?v=4.0"></script>
+  <script src="{{ url_for('static', filename='js/dashboard.js') }}?v=4.0"></script>
 </body>
 </html>

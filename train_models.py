@@ -78,8 +78,10 @@ def train_budget_ml_model():
 
     # Base Constants 
     STAY_NIGHTLY_BASE = {
-        'hostel': 400, 'camping': 600, 'friend_house': 0,
+        'hostel': 400, 'camping': 600, 'friend_house': 0, 'home': 0, 'family_stay': 0,
         'budget_hotel': 1200, '3star_hotel': 2800, 'resort': 5500, '5star_hotel': 11000,
+        'dharamshala': 200, 'ashram': 300, 'guesthouse': 800, 'homestay': 1000,
+        'heritage_hotel': 3500, 'houseboat': 4000, 'treehouse': 2500, 'desert_camp': 1500, 'tent_resort': 2000
     }
     FOOD_DAILY_COST = {
         'veg_thali': 300, 'nonveg_thali': 450, 'local_cuisine': 600, 
@@ -103,29 +105,47 @@ def train_budget_ml_model():
     booking_arr = np.random.choice(list(BOOKING_MULT.keys()), n_samples)
     stay_arr = np.random.choice(list(STAY_NIGHTLY_BASE.keys()), n_samples)
 
+    # Generate random is_family flag for training
+    is_family_arr = np.random.choice([True, False], n_samples, p=[0.3, 0.7])  # 30% family travel
+
     y_budget = []
     
-    # Generate labels using the baseline formula + random Gaussian noise to simulate real-world variance
+    # Generate labels using the SAME logic as prediction + random Gaussian noise
     for i in range(n_samples):
-        # Baseline Feature Logic
+        # Baseline costs (same as ml_budget.py)
         s_mult = SEASON_MULT[season_arr[i]]
         b_mult = BOOKING_MULT[booking_arr[i]]
         d = days_arr[i]
         grp = group_arr[i]
+        stay_type = stay_arr[i]
 
-        duration_discount = 0.82 if d > 14 else (0.91 if d >= 7 else 1.0)
-        group_discount = 0.65 if grp >= 10 else (0.80 if grp >= 4 else 1.0)
-
-        nightly_pp = STAY_NIGHTLY_BASE[stay_arr[i]] * s_mult * b_mult * duration_discount
+        # Base costs per person per day
+        nightly_pp = STAY_NIGHTLY_BASE[stay_type] * s_mult * b_mult
         food_daily_pp = FOOD_DAILY_COST[food_arr[i]] * s_mult
         transport_pp = TRANSPORT_DAILY_PP[style_arr[i]] * s_mult
 
-        base_total = (nightly_pp + food_daily_pp + transport_pp) * d * grp * group_discount
+        # Calculate base total for group
+        base_total = (nightly_pp + food_daily_pp + transport_pp) * d * grp
         
-        # Inject random real-world price fluctuation (±10% noise)
-        noise = np.random.normal(0, 0.10) 
+        # Apply SAME discounts as in ml_budget.py predict method
+        
+        # 1. Group discount (for 3+ people)
+        if grp >= 3:
+            discount_pct = min(0.30, 0.05 + (grp * 0.025))  # 12.5% for 3, up to 30% for 10+
+            base_total = base_total * (1.0 - discount_pct)
+            
+        # 2. Family discount (if family travel)
+        if is_family_arr[i]:
+            base_total = base_total * 0.80  # 20% family discount
+
+        # 3. Stay type discount (for family/friend/home stays)
+        if stay_type in ['friend_house', 'home', 'family_stay']:
+            base_total = base_total * 0.20  # 80% discount, keep only transport
+        
+        # Inject random real-world price fluctuation (±15% noise)
+        noise = np.random.normal(0, 0.15) 
         final_budget = base_total * (1 + noise)
-        y_budget.append(final_budget)
+        y_budget.append(max(0, final_budget))  # Ensure non-negative
 
     df = pd.DataFrame({
         'days': days_arr,

@@ -493,11 +493,13 @@ def predict_budget_api():
         season      = data.get('season', 'shoulder')         # 'peak', 'off-peak', 'shoulder', 'holiday'
         booking     = data.get('booking', 'normal')          # 'last-minute', 'normal', 'advance'
         stay_type   = data.get('stay_type', 'budget_hotel')  # accommodation type
+        is_family   = bool(data.get('is_family', False))
+        destination = data.get('destination', '')            # destination city for cost adjustment
 
         if days <= 0 or group_size <= 0:
             return jsonify({"status": "error", "message": "Days and group size must be positive"}), 400
 
-        # Query the advanced Hypercube Budget engine (v2 — stay-type + booking aware)
+        # Query the advanced Hypercube Budget engine (v3 — family discount aware)
         total_budget = budget_model.predict(
             days=days,
             travel_style=hotel_style,
@@ -505,7 +507,9 @@ def predict_budget_api():
             group_size=group_size,
             season=season,
             booking=booking,
-            stay_type=stay_type
+            stay_type=stay_type,
+            is_family=is_family,
+            destination=destination
         )
 
         return jsonify({
@@ -1564,11 +1568,12 @@ def _process_chatbot(message):
     if any(w in m for w in ["budget", "cost", "expense", "money", "spend", "cheap", "expensive",
                              "affordable", "price", "rupee", "inr", "usd", "currency", "exchange"]):
         if "currency" in m or "exchange" in m or "usd" in m or "dollar" in m:
-            return ("💱 <b>Currency Tips:</b><br>"
-                    "<ul><li>Always exchange money at official banks or airport kiosks — avoid street exchanges.</li>"
-                    "<li>Notify your bank before traveling internationally to avoid card blocks.</li>"
-                    "<li>Use apps like <b>XE Currency</b> for live exchange rates.</li>"
-                    "<li>Carry some local cash for areas without card acceptance.</li></ul>")
+            return ("💱 <b>Currency Tips for India Travel:</b><br>"
+                    "<ul><li>For domestic travel, you only need Indian Rupees (₹) — no currency exchange needed!</li>"
+                    "<li>ATMs are widely available — use HDFC, SBI, or ICICI for best rates.</li>"
+                    "<li>Inform your bank about your travel plans to avoid card blocks.</li>"
+                    "<li>Carry a mix of cash and cards — UPI apps like GPay/PhonePe are widely accepted.</li>"
+                    "<li>Avoid exchanging money at airports; they have the worst rates.</li></ul>")
         return ("💰 Use the <b>Budget Tracker</b> card on your dashboard to plan expenses.<br><br>"
                 "Quick Budget Guidelines for India:<br>"
                 "<ul><li><b>Budget backpacker:</b> ₹800–1500/day</li>"
@@ -1580,11 +1585,13 @@ def _process_chatbot(message):
     if any(w in m for w in ["transport", "travel by", "how to reach", "cab", "auto", "taxi",
                              "ola", "uber", "bus", "metro", "train", "flight", "airplane"]):
         if any(w in m for w in ["flight", "airplane", "fly"]):
-            return ("✈️ <b>Flight Travel Tips:</b><br>"
-                    "<ul><li>Book 6-8 weeks in advance for best prices.</li>"
-                    "<li>Use <b>Google Flights</b> or <b>Skyscanner</b> to compare fares.</li>"
-                    "<li>Always arrive 2 hours before domestic, 3 hours before international flights.</li>"
-                    "<li>Keep digital copies of your boarding pass and ID.</li></ul>")
+            return ("✈️ <b>Domestic Flight Travel Tips (India):</b><br>"
+                    "<ul><li>Book 4-6 weeks in advance for best fares on Indigo, Air India, SpiceJet.</li>"
+                    "<li>Use <b>Google Flights</b>, <b>MakeMyTrip</b>, or <b>Goibibo</b> to compare fares.</li>"
+                    "<li>Always arrive 2 hours before domestic flights (Indian airports can be crowded).</li>"
+                    "<li>Keep digital copies of your boarding pass and Aadhaar card.</li>"
+                    "<li>Check-in online 24 hours before to avoid queues.</li>"
+                    "<li>Carry only cabin baggage if possible — domestic flights have strict weight limits.</li></ul>")
         if any(w in m for w in ["train", "railway"]):
             return ("🚆 <b>Train Travel in India:</b><br>"
                     "<ul><li>Book via <b>IRCTC</b> — the official railway booking site.</li>"
@@ -1602,26 +1609,26 @@ def _process_chatbot(message):
                              "unsafe", "crime", "danger zone", "precaution"]):
         return ("🛡️ <b>Travel Safety Checklist (India):</b><br>"
                 "<ul><li>Carry your <b>Aadhaar card / Voter ID</b> — required for hotel check-ins and trains in India.</li>"
-                "<li>Share your live location with a trusted contact.</li>"
-                "<li>Use our <b>Live Tracker</b> to stay connected.</li>"
-                "<li>Avoid displaying expensive items or large amounts of cash.</li>"
-                "<li>Use a VPN on public Wi-Fi — airports, cafes, hotels.</li>"
-                "<li>Research local scams at your destination before arriving.</li>"
-                "<li>Trust your gut — if something feels wrong, leave.</li>"
-                "<li><b>For international travel</b>, keep passport + visa copies on cloud storage.</li></ul>")
+                "<li>Share your live location with a trusted contact using WhatsApp or Google Maps.</li>"
+                "<li>Use our <b>Live Tracker</b> to stay connected with family.</li>"
+                "<li>Avoid displaying expensive items or large amounts of cash in public.</li>"
+                "<li>Use a VPN on public Wi-Fi — airports, cafes, hotels are common spots.</li>"
+                "<li>Research local safety concerns at your destination before arriving.</li>"
+                "<li>Trust your gut — if something feels wrong, leave the area immediately.</li>"
+                "<li>Save emergency numbers: Police (100), Ambulance (108), Fire (101).</li></ul>")
 
     # ─── INTENT: Packing / Luggage ───
     if any(w in m for w in ["pack", "packing", "luggage", "bag", "carry", "essentials", "what to bring"]):
         return ("🧳 <b>Smart Packing List for India Travel:</b><br>"
                 "<ul><li>📄 <b>Aadhaar Card / Voter ID / PAN Card</b> — mandatory for hotel check-in & train travel in India</li>"
-                "<li>💊 Personal medications + basic first aid kit</li>"
+                "<li>💊 Personal medications + basic first aid kit (ORS packets for dehydration)</li>"
                 "<li>🔌 Universal power adapter (Type D/M plugs used in India)</li>"
                 "<li>💦 Reusable water bottle + water purification tablets</li>"
-                "<li>🧴 Sunscreen + insect repellent (especially for coastal/forested areas)</li>"
-                "<li>📱 Power bank (min. 10,000 mAh)</li>"
-                "<li>🧥 Light jacket/layer (even for hot destinations — AC trains are cold!)</li>"
-                "<li>💳 Multiple payment methods (cash + UPI apps like GPay/PhonePe)</li>"
-                "<li>✈️ <i>Travelling internationally? Also carry passport + visa copies.</i></li></ul>")
+                "<li>🧴 Sunscreen + mosquito repellent (essential for Indian climate)</li>"
+                "<li>📱 Power bank (min. 10,000 mAh — power cuts are common)</li>"
+                "<li>🧥 Light jacket/layer (AC in trains/hotels can be freezing!)</li>"
+                "<li>💳 Multiple payment methods (cash + UPI apps like GPay/PhonePe/Paytm)</li>"
+                "<li>👕 Modest clothing for temple visits (shoulders and knees covered)</li></ul>")
 
     # ─── INTENT: ID / Documentation (Domestic India vs International) ───
     if any(w in m for w in ["visa", "passport", "document", "id proof", "permit", "id card", "aadhaar"]):
@@ -1680,20 +1687,22 @@ def _process_chatbot(message):
     # ─── INTENT: Health / Medical ───
     if any(w in m for w in ["sick", "ill", "medicine", "doctor", "health", "fever", "food poisoning",
                              "insurance", "medical", "first aid", "vaccine", "vaccination"]):
-        return ("🏥 <b>Travel Health Guide:</b><br>"
-                "<ul><li>Get travel insurance before any international trip — it covers medical emergencies.</li>"
-                "<li>Carry a basic first-aid kit: bandages, antiseptic, antacids, ORS, paracetamol.</li>"
-                "<li>Check recommended vaccines for your destination via <b>WHO Travel Advice</b> portal.</li>"
-                "<li>Drink only sealed packaged water in unfamiliar regions.</li>"
-                "<li>India Ambulance: <b>108</b> | Tourist Helpline: <b>1800-111-363</b></li></ul>")
+        return ("🏥 <b>Travel Health Guide for India:</b><br>"
+                "<ul><li>Consider travel insurance for medical emergencies and trip cancellations.</li>"
+                "<li>Carry a basic first-aid kit: bandages, antiseptic, antacids, ORS packets, paracetamol.</li>"
+                "<li>Stay hydrated and avoid street food if you have a sensitive stomach.</li>"
+                "<li>Drink only bottled or filtered water in unfamiliar areas.</li>"
+                "<li>India Ambulance: <b>108</b> | Tourist Helpline: <b>1800-111-363</b></li>"
+                "<li>Carry mosquito repellent for monsoon season and forested areas.</li></ul>")
 
     # ─── INTENT: Internet / SIM ───
     if any(w in m for w in ["sim", "internet", "data", "wifi", "network", "roaming", "4g", "5g", "connect"]):
-        return ("📡 <b>Staying Connected While Traveling:</b><br>"
-                "<ul><li>Buy a local prepaid SIM at the airport — much cheaper than roaming.</li>"
-                "<li>In India, <b>Jio</b> and <b>Airtel</b> offer the best nationwide coverage.</li>"
-                "<li>For international travel, consider an <b>eSIM</b> from Airalo or Google Fi.</li>"
-                "<li>Always use a <b>VPN</b> on public Wi-Fi to protect passwords and data.</li></ul>")
+        return ("📡 <b>Staying Connected in India:</b><br>"
+                "<ul><li>Get a local prepaid SIM from <b>Jio</b> or <b>Airtel</b> — excellent nationwide coverage.</li>"
+                "<li>Available at airports, railway stations, or any mobile store.</li>"
+                "<li>Most hotels and cafes offer free Wi-Fi, but use a VPN for security.</li>"
+                "<li>Download offline maps and keep physical maps as backup.</li>"
+                "<li>UPI apps like GPay/PhonePe work without internet for payments.</li></ul>")
 
     # ─── INTENT: Destination Info (Wikipedia Fallback) — FINAL CATCH ───
     # This catches anything left with explicit destination patterns like "tell me about X"
@@ -1725,16 +1734,16 @@ def _process_chatbot(message):
                 "<ul><li>📍 <b>Your location</b> — 'where am I?'</li>"
                 "<li>🏥 <b>Nearby places</b> — 'find nearest hospital'</li>"
                 "<li>⚠️ <b>Emergencies</b> — 'I need help'</li>"
-                "<li>🛡️ <b>Safety tips</b></li>"
+                "<li>🛡️ <b>Safety tips for India</b></li>"
                 "<li>💰 <b>Budget & costs</b></li>"
-                "<li>🚗 <b>Transport options</b></li>"
-                "<li>🌤️ <b>Weather & seasons</b></li>"
+                "<li>🚗 <b>Transport in India</b> — trains, flights, buses</li>"
+                "<li>🌤️ <b>Weather & best seasons</b></li>"
                 "<li>🍛 <b>Food recommendations</b></li>"
                 "<li>🏨 <b>Accommodation tips</b></li>"
-                "<li>🫢 <b>ID & documents</b> — Aadhaar for India travel, passport for international</li>"
-                "<li>🧳 <b>Packing lists</b></li>"
-                "<li>🌐 <b>Info on any destination</b> — 'tell me about Goa'</li></ul>"
-                "Just ask me anything travel-related!")
+                "<li>🪪 <b>Documents</b> — Aadhaar, ID proof for Indian travel</li>"
+                "<li>🧳 <b>Packing for Indian climate</b></li>"
+                "<li>🌐 <b>Info on any Indian destination</b> — 'tell me about Goa'</li></ul>"
+                "Just ask me anything about traveling in India!")
 
     # ─── INTENT: Appreciation ───
     if any(w in m for w in ["thanks", "thank you", "thx", "nice", "good", "great", "awesome",

@@ -86,7 +86,11 @@ const App = {
     if (this.Elements.destination) {
       this.Elements.destination.addEventListener("input", () => {
         clearTimeout(this.State.destTimeout);
-        this.State.destTimeout = setTimeout(() => this.Map.fetchSuggestions('dest'), 300);
+        this.State.destTimeout = setTimeout(() => {
+          this.Map.fetchSuggestions('dest');
+          // Auto-recalculate budget if form is ready
+          setTimeout(() => this.Budget.autoRecalculateBudget(), 500);
+        }, 300);
       });
       this.Elements.destination.addEventListener("keydown", (e) => this.Map.handleSuggestionsKeydown(e, 'dest'));
     }
@@ -112,8 +116,37 @@ const App = {
         if (this.Elements.group_size_wrapper) {
           this.Elements.group_size_wrapper.style.display = (e.target.value === 'group') ? 'block' : 'none';
         }
+        // Auto-recalculate budget when traveler type changes
+        setTimeout(() => this.Budget.autoRecalculateBudget(), 100);
       });
     });
+
+    // Auto-recalculate budget when key fields change
+    ['start_date', 'end_date', 'group_size'].forEach(fieldId => {
+      const el = document.getElementById(fieldId);
+      if (el) {
+        el.addEventListener('change', () => {
+          setTimeout(() => this.Budget.autoRecalculateBudget(), 300);
+        });
+      }
+    });
+
+    // Auto-recalculate when budget-related radio buttons change
+    ['travel_style', 'food_type', 'stay_type'].forEach(radioName => {
+      document.querySelectorAll(`input[name="${radioName}"]`).forEach(radio => {
+        radio.addEventListener('change', () => {
+          setTimeout(() => this.Budget.autoRecalculateBudget(), 300);
+        });
+      });
+    });
+
+    // Auto-recalculate when family checkbox changes
+    const familyEl = document.getElementById('is_family');
+    if (familyEl) {
+      familyEl.addEventListener('change', () => {
+        setTimeout(() => this.Budget.autoRecalculateBudget(), 300);
+      });
+    }
   },
 
   // NEW: Load trips for auto-selection
@@ -628,7 +661,7 @@ const App = {
       group: { budget: 600, mid: 1500, luxury: 4500 }  // Per person (shared accommodation discount)
     },
 
-    estimateBudget: async function () {
+    estimateBudget: async function (silent = false) {
       const destination = App.Util.getVal('destination');
       const start_date = App.Util.getVal('start_date');
       const end_date = App.Util.getVal('end_date');
@@ -664,6 +697,7 @@ const App = {
       const travelStyle = document.querySelector('input[name="travel_style"]:checked')?.value || 'mid';
       const foodType = document.querySelector('input[name="food_type"]:checked')?.value || 'dhaba';
       const stayType = (document.querySelector('input[name="stay_type"]:checked')?.value) || 'budget_hotel';
+      const isFamily = document.getElementById('is_family')?.checked || false;
 
       // ── 4. Auto-detect season from travel month ─────────────────────────
       const startMonth = startDate.getMonth() + 1;
@@ -691,7 +725,9 @@ const App = {
             food_type: foodType,
             season: season,
             booking: booking,
-            stay_type: stayType
+            stay_type: stayType,
+            is_family: isFamily,
+            destination: destination
           })
         });
         const data = await res.json();
@@ -703,12 +739,16 @@ const App = {
           const bookingLabel = { 'last-minute': 'Last Minute 🔥', 'normal': 'Normal', 'advance': 'Advance ✅' }[booking];
           const foodLabel = foodType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
           const stayLabel = stayType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-          alert(
-            `🧮 ML Budget Estimate
+          const familyLabel = isFamily ? '👨‍👩‍👧‍👦 Family Travel (20% discount applied)' : 'Individual/Group Travel';
+          
+          if (!silent) {
+            alert(
+              `🧮 ML Budget Estimate
 
 👥 Travelers  : ${groupSize} person(s) — ${travelerType}
 🎒 Style      : ${travelStyle}  |  🍛 Food: ${foodLabel}
 🏨 Stay       : ${stayLabel}
+👨‍👩‍👧‍👦 Family    : ${familyLabel}
 📅 Duration   : ${numDays} day(s)  |  Season: ${season}
 📆 Booking    : ${bookingLabel}
 
@@ -716,15 +756,60 @@ const App = {
 ━━━━━━━━━━━━━━━━━━━━━━━━
 ✈️ Total Budget : ₹${total.toLocaleString('en-IN')}
 (includes stay + food + local transport)`
-          );
+            );
+          }
         } else {
           App.Util.setVal('budget', '');
-          alert('Budget error: ' + (data.message || 'Unknown error'));
+          if (!silent) {
+            alert('Budget error: ' + (data.message || 'Unknown error'));
+          }
         }
       } catch (e) {
         console.error('estimateBudget error:', e);
         App.Util.setVal('budget', '');
-        alert('Failed to reach ML API. Is the server running?');
+        if (!silent) {
+          alert('Failed to reach ML API. Is the server running?');
+        }
+      }
+    },
+
+    // Auto-recalculate budget when destination or key fields change
+    autoRecalculateBudget: async function () {
+      const destination = App.Util.getVal('destination');
+      const start_date = App.Util.getVal('start_date');
+      const end_date = App.Util.getVal('end_date');
+
+      // Only auto-recalculate if we have the minimum required fields
+      if (!destination || !start_date || !end_date) {
+        return; // Not enough info yet
+      }
+
+      // Check if dates are valid
+      const startDate = new Date(start_date);
+      const endDate = new Date(end_date);
+      if (isNaN(startDate) || isNaN(endDate) || endDate < startDate) {
+        return; // Invalid dates
+      }
+
+      // Show subtle calculating indicator
+      const budgetEl = document.getElementById('budget');
+      if (budgetEl) {
+        budgetEl.style.opacity = '0.7';
+        budgetEl.placeholder = 'Recalculating...';
+      }
+
+      try {
+        // Use the same logic as estimateBudget but without alerts
+        await this.estimateBudget();
+      } catch (e) {
+        console.log('Auto-recalculation skipped:', e.message);
+      } finally {
+        // Restore normal appearance
+        if (budgetEl) {
+          budgetEl.style.opacity = '1';
+          const currentVal = App.Util.getVal('budget');
+          budgetEl.placeholder = currentVal ? '' : 'Click \'Calculate\' to estimate';
+        }
       }
     },
 
@@ -748,6 +833,10 @@ const App = {
         const el = document.querySelector(`input[name="${name}"][value="${val}"]`);
         if (el) el.checked = true;
       });
+
+      // Reset family checkbox
+      const familyEl = document.getElementById('is_family');
+      if (familyEl) familyEl.checked = false;
 
       // Reset group size
       const gsEl = document.getElementById('group_size');
@@ -1222,10 +1311,10 @@ const App = {
       }
 
       // ── Wikipedia Geosearch API ──
-      // Returns up to 30 named Wikipedia articles near coordinates
+      // Returns up to 500 named Wikipedia articles near coordinates
       // Completely free, no API key, fast Wikipedia CDN
       const radius = 10000; // 10km
-      const limit = 30;
+      const limit = 500;
       const wikiUrl = `https://en.wikipedia.org/w/api.php?` +
         `action=query&list=geosearch` +
         `&gscoord=${lat}|${lon}` +
@@ -1238,35 +1327,91 @@ const App = {
         const res = await fetch(wikiUrl);
         const data = await res.json();
         const rawPlaces = data?.query?.geosearch || [];
-        // Forcefully filter out generic residential zones, colonies, transit stops, administrative zones, and academic institutions!
-        const blacklist = /colony|residential|society|apartment|phase\s*\d|sector\s*\d|layout|cross|taluka|tehsil|mandal|district|school|college|institute|university|academy/i;
-        places = rawPlaces.filter(p => !blacklist.test(p.title));
+        // ── BLACKLIST: Exclude all non-tourist places ──────────────────────────────
+        // Schools, hospitals, government offices, stations, residential areas, etc.
+        const BLACKLIST = new RegExp('\\b(' + [
+          // Education
+          'school', 'college', 'university', 'institute', 'academy', 'polytechnic',
+          'vidyalaya', 'vidyamandir', 'mahavidyalaya', 'convent', 'seminary',
+          // Medical
+          'hospital', 'clinic', 'dispensary', 'nursing home', 'health cent',
+          'medical cent', 'primary health', 'phc', 'chc', 'community health',
+          // Transport / Transit
+          'railway station', 'train station', 'metro station', 'bus stand',
+          'bus terminal', 'bus depot', 'bus stop', 'auto stand', 'taxi stand',
+          'junction station', 'airport terminal', 'railway junction',
+          // Government / Admin
+          'assembly', 'vidhan sabha', 'secretariat', 'collectorate', 'tehsildar',
+          'tehsil', 'taluka', 'mandal', 'taluk', 'block office', 'panchayat office',
+          'municipal office', 'corporation office', 'government office',
+          'district court', 'high court', 'court complex', 'police station',
+          'police headquarters', 'fire station', 'post office', 'sub post office',
+          'income tax', 'customs office', 'passport office', 'ration shop',
+          // Residential / Locality
+          'colony', 'residential', 'society', 'apartment', 'flat', 'housing',
+          'layout', 'extension', 'nagar', 'vihar', 'enclave', 'township',
+          'phase\\s*\\d', 'sector\\s*\\d', 'block\\s*[a-z\\d]',
+          // Banking / Finance
+          'bank', 'atm', 'finance office',
+          // Religious — local/small (keep only famous ones via whitelist)
+          // Industry / Utility
+          'factory', 'power plant', 'sewage', 'water treatment', 'pumping station',
+          'telephone exchange', 'substation', 'warehouse', 'godown',
+          // Sports — local venues
+          'playground', 'sports complex', 'indoor stadium', 'multipurpose hall',
+        ].join('|') + ')\\b', 'i');
+
+        // Apply filter: must NOT match blacklist
+        places = rawPlaces.filter(p => {
+          const titleLower = p.title.toLowerCase();
+          if (BLACKLIST.test(titleLower)) return false; // Exclude non-tourist venues
+          return true;
+        });
+
+        // Limit the final displayed list to top 30 to not overwhelm the UI
+        places = places.slice(0, 30);
       } catch (err) {
         console.error('Wikipedia Geosearch failed:', err);
       }
 
-      // ── Smart icon based on place name keywords ──
+      // ── Smart icon based on place name keywords (tourist places only) ──
       const getIcon = (name) => {
         const n = name.toLowerCase();
-        if (/fort|killa|qila|castle|palace|mahal/.test(n)) return { icon: 'fa-chess-rook', color: '#f59e0b' };
-        if (/temple|mandir|devi|shiva|ganesh|hanuman|ram|kali|balaji|tirupati|jain|gurudwara|gurdwara/.test(n))
+        if (/fort|killa|qila|castle|palace|mahal|haveli/.test(n))
+          return { icon: 'fa-chess-rook', color: '#f59e0b' };
+        if (/temple|mandir|devi|shiva|ganesh|hanuman|ram|kali|balaji|tirupati|jain|gurudwara|gurdwara|ashram|math/.test(n))
           return { icon: 'fa-place-of-worship', color: '#a78bfa' };
-        if (/mosque|masjid|dargah|tomb|mazar/.test(n)) return { icon: 'fa-place-of-worship', color: '#34d399' };
-        if (/church|cathedral|chapel/.test(n)) return { icon: 'fa-place-of-worship', color: '#60a5fa' };
-        if (/museum|gallery|art|heritage/.test(n)) return { icon: 'fa-landmark', color: '#38bdf8' };
-        if (/ruin|archaeo|monument|memorial|pillar|stupa/.test(n)) return { icon: 'fa-monument', color: '#fbbf24' };
-        if (/cave|cavern|lena|gufa/.test(n)) return { icon: 'fa-mountain', color: '#6ee7b7' };
-        if (/waterfall|falls|dam|lake|reservoir|river|kund|tirth/.test(n))
+        if (/mosque|masjid|dargah|mazar|shrine|tomb|mausoleum/.test(n))
+          return { icon: 'fa-place-of-worship', color: '#34d399' };
+        if (/church|cathedral|chapel|basilica|abbey|monastery/.test(n))
+          return { icon: 'fa-place-of-worship', color: '#60a5fa' };
+        if (/stupa|pagoda/.test(n))
+          return { icon: 'fa-dharmachakra', color: '#fbbf24' };
+        if (/museum|gallery|art|heritage|cultural|planetarium|science centre|aquarium|observatory/.test(n))
+          return { icon: 'fa-landmark', color: '#38bdf8' };
+        if (/ruin|archaeo|monument|memorial|pillar|stambha|arch|gate|darwaza|cenotaph|chhatri|stepwell|baori|vav|bawdi/.test(n))
+          return { icon: 'fa-monument', color: '#fbbf24' };
+        if (/cave|cavern|lena|gufa|grotto/.test(n))
+          return { icon: 'fa-mountain', color: '#6ee7b7' };
+        if (/waterfall|falls|dam|lake|reservoir|kund|tirth|ghat/.test(n))
           return { icon: 'fa-water', color: '#38bdf8' };
-        if (/park|garden|reserve|sanctuary|wildlife|forest/.test(n)) return { icon: 'fa-leaf', color: '#4ade80' };
-        if (/beach|coast|sea|island/.test(n)) return { icon: 'fa-umbrella-beach', color: '#fbbf24' };
-        if (/zoo|safari/.test(n)) return { icon: 'fa-paw', color: '#f472b6' };
-        if (/university|college|school|institute/.test(n)) return { icon: 'fa-graduation-cap', color: '#818cf8' };
-        if (/hospital|medical|clinic/.test(n)) return { icon: 'fa-hospital', color: '#f87171' };
-        if (/market|bazaar|mall|shopping/.test(n)) return { icon: 'fa-shopping-bag', color: '#fb923c' };
-        if (/stadium|ground|sport/.test(n)) return { icon: 'fa-trophy', color: '#fcd34d' };
-        if (/airport|airfield/.test(n)) return { icon: 'fa-plane', color: '#38bdf8' };
-        return { icon: 'fa-map-marker-alt', color: 'var(--primary)' };
+        if (/river|stream/.test(n))
+          return { icon: 'fa-water', color: '#60a5fa' };
+        if (/national park|sanctuary|wildlife|biosphere|reserve|forest|jungle/.test(n))
+          return { icon: 'fa-tree', color: '#4ade80' };
+        if (/garden|botanical|rose garden|rock garden/.test(n))
+          return { icon: 'fa-leaf', color: '#86efac' };
+        if (/beach|coast|island|bay|cape|peninsula/.test(n))
+          return { icon: 'fa-umbrella-beach', color: '#fbbf24' };
+        if (/hill|peak|mountain|valley|gorge|canyon|cliff|viewpoint|lookout/.test(n))
+          return { icon: 'fa-mountain', color: '#a3e635' };
+        if (/zoo|safari/.test(n))
+          return { icon: 'fa-paw', color: '#f472b6' };
+        if (/lighthouse|tower|minaret|clock tower/.test(n))
+          return { icon: 'fa-broadcast-tower', color: '#94a3b8' };
+        if (/amphitheatre|auditorium|opera house/.test(n))
+          return { icon: 'fa-theater-masks', color: '#fb923c' };
+        return { icon: 'fa-map-marker-alt', color: '#38bdf8' };
       };
 
       // ── Expose cached places + title so the detail view can rebuild the list ──
@@ -1332,20 +1477,30 @@ const App = {
         <i class="fas fa-crosshairs"></i> ${lat.toFixed(4)}, ${lon.toFixed(4)} · within 10km
       </span>`;
 
+      // Handle empty state gracefully
+      const bodyContent = places.length === 0
+        ? `<div style="text-align:center;padding:30px 20px;">
+             <div style="font-size:3rem;margin-bottom:14px;">🏛️</div>
+             <h4 style="color:#f1f5f9;margin-bottom:8px;">No Famous Places Found Nearby</h4>
+             <p style="color:#64748b;font-size:0.88rem;line-height:1.6;">
+               No historical, religious or tourist attractions were found within 10 km of your location.<br>
+               Try searching from a different destination or a major city.
+             </p>
+           </div>`
+        : `<div style="max-height:420px;overflow-y:auto;padding-right:4px;">${items}</div>`;
+
       App.Util.showModal(`
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:6px;">
           <h3 style="margin:0;">${title}</h3>
           ${distBadge}
         </div>
-        <p style="color:#64748b;font-size:0.8rem;margin:2px 0 12px;">
-          ${places.length} places found &nbsp;·&nbsp;
-          <i class="fas fa-info-circle" style="color:#a78bfa;"></i> Info
-          &nbsp;
-          <i class="fas fa-map-pin" style="color:#38bdf8;"></i> Maps
+        <p style="color:#64748b;font-size:0.8rem;margin:2px 0 14px;">
+          <span style="color:${places.length > 0 ? '#34d399' : '#f87171'};">
+            ${places.length} famous &amp; historical places
+          </span>
+          &nbsp;·&nbsp; Showing temples, forts, monuments, parks &amp; more
         </p>
-        <div style="max-height:420px;overflow-y:auto;padding-right:4px;">
-          ${items}
-        </div>
+        ${bodyContent}
         <div class="modal-buttons" style="margin-top:12px;">
           <button onclick="App.Budget.closeBudgetTracker()" class="btn-close">Close</button>
         </div>`);
@@ -1464,35 +1619,44 @@ const App = {
       const tipCategories = {
         "Safety & Security": [
           "Carry your Aadhaar Card / Voter ID — required for hotel check-ins and train travel in India.",
-          "Share your itinerary with family or friends back home.",
+          "Share your live location with family using apps like WhatsApp or Google Maps.",
           "Avoid walking alone at night in poorly lit or unfamiliar areas.",
           "Use a money belt or secure pouch for your cash, cards, and phone.",
-          "Be wary of public Wi-Fi. Use a VPN for sensitive transactions.",
-          "Research common scams in your destination before arriving.",
-          "Travelling internationally? Keep passport + visa copies on cloud storage."
+          "Be cautious with public Wi-Fi. Use mobile data or a VPN for online banking.",
+          "Research local safety concerns in your destination before arriving.",
+          "Keep emergency contacts saved: Local police (100), Ambulance (108), Fire (101)."
         ],
         "Packing Essentials": [
-          "Pack a basic first-aid kit (band-aids, pain relievers, antiseptic wipes).",
-          "A portable power bank is a lifesaver for long days.",
+          "Pack a basic first-aid kit (band-aids, pain relievers, antiseptic wipes, ORS packets).",
+          "A portable power bank is essential for long journeys and areas with power cuts.",
           "Bring a reusable water bottle to stay hydrated and reduce plastic waste.",
-          "Pack one 'smart' outfit for unexpected formal occasions.",
+          "Pack one 'smart' outfit for temple visits or formal occasions.",
           "Roll your clothes instead of folding to save space and reduce wrinkles.",
-          "Bring universal power adapters."
+          "Bring mosquito repellent, sunscreen, and comfortable walking shoes for Indian weather."
         ],
         "Budget & Money": [
           "Inform your bank of your travel plans to avoid blocked cards.",
-          "Carry a mix of cash and cards. Have a backup card stored separately.",
-          "Eat where the locals eat. It's often cheaper and more authentic.",
-          "Use public transportation instead of taxis or ride-shares.",
-          "Look for free walking tours or city passes for attractions.",
-          "Avoid currency exchange kiosks at airports; they have the worst rates."
+          "Carry a mix of cash and cards. ATMs are widely available but may charge fees.",
+          "Eat at local dhabas and street food stalls for authentic, budget-friendly meals.",
+          "Use public transport (buses, metros, local trains) instead of expensive cabs.",
+          "Look for government-run tourist information centers for free advice and maps.",
+          "Avoid exchanging money at airports; use banks or ATMs for better rates."
         ],
         "Local Culture & Etiquette": [
-          "Learn a few basic phrases in the local language (Hello, Thank You, Excuse Me).",
-          "Research local customs and dress codes, especially for religious sites.",
+          "Learn basic Hindi phrases: 'Namaste' (hello), 'Dhanyavaad' (thank you), 'Maaf kijiye' (excuse me).",
+          "Dress modestly when visiting temples and religious sites.",
+          "Remove shoes when entering homes, temples, and mosques.",
           "Be respectful when taking photos of people. Always ask for permission first.",
-          "Understand the local tipping culture.",
-          "Try the local cuisine, but be polite if you don't like something."
+          "Try local cuisine but be polite if you don't like spicy food.",
+          "Understand the concept of 'Indian Standard Time' — things often run late!"
+        ],
+        "Indian Travel Specific": [
+          "Book train tickets via IRCTC app/website — it's reliable and has Tatkal option.",
+          "Download offline maps and keep physical maps as backup.",
+          "Carry extra cash for tolls, parking, and small purchases.",
+          "Respect local customs: Don't eat with left hand, cover head in gurdwaras.",
+          "Stay hydrated and avoid street food if you have a sensitive stomach.",
+          "Use apps like RedBus, MakeMyTrip for bus and hotel bookings."
         ]
       };
 

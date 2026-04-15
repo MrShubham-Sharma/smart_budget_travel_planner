@@ -1,449 +1,707 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Panel | Smart Budget Travel Planner</title>
-    <!-- Premium Font -->
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        :root {
-            --bg: #0a0a0a;
-            --surface: #171717;
-            --surface-hover: #262626;
-            --border: #333;
-            --primary: #6366f1;
-            --success: #10b981;
-            --text: #f3f4f6;
-            --text-muted: #9ca3af;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Panel — Smart Budget Travel Planner</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    /* ── Design Tokens ── */
+    :root {
+      --bg:           #050a14;
+      --surface:      #0d1526;
+      --surface-2:    #111d35;
+      --surface-hover:#162040;
+      --border:       rgba(255,255,255,0.07);
+      --border-glow:  rgba(56,189,248,0.25);
+      --primary:      #38bdf8;
+      --accent:       #818cf8;
+      --success:      #34d399;
+      --warning:      #fbbf24;
+      --danger:       #f87171;
+      --text:         #f1f5f9;
+      --text-muted:   #64748b;
+      --text-dim:     rgba(241,245,249,0.45);
+      --grad-primary: linear-gradient(135deg,#38bdf8,#818cf8);
+    }
 
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(56,189,248,0.3); border-radius:99px; }
 
-        body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            min-height: 100vh;
-            padding: 1.5rem;
-        }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
 
-        /* ── Header ── */
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 1rem;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid var(--border);
-        }
+    /* ── Animated top accent ── */
+    .top-accent {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg,#38bdf8,#818cf8,#34d399,#38bdf8);
+      background-size: 300% 100%;
+      animation: accentSlide 4s linear infinite;
+      z-index: 200;
+    }
+    @keyframes accentSlide {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
 
-        .header-left h1 {
-            font-size: clamp(1.1rem, 4vw, 1.8rem);
-            font-weight: 800;
-            background: linear-gradient(135deg, #fff, #9ca3af);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            line-height: 1.2;
-        }
+    /* ── Sidebar Navigation ── */
+    .layout { display: flex; min-height: 100vh; }
 
-        .header-left p {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            margin-top: 4px;
-        }
+    .sidebar {
+      width: 240px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 28px 0;
+      position: fixed;
+      top: 0; left: 0;
+      height: 100vh;
+      z-index: 100;
+      overflow-y: auto;
+      animation: sidebarSlide 0.6s cubic-bezier(0.175,0.885,0.32,1.275) both;
+    }
+    @keyframes sidebarSlide {
+      from { transform: translateX(-100%); opacity: 0; }
+      to   { transform: translateX(0);    opacity: 1; }
+    }
 
-        .btn {
-            background: var(--surface);
-            color: var(--text);
-            border: 1px solid var(--border);
-            padding: 8px 16px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 0.9rem;
-            transition: all 0.2s;
-            white-space: nowrap;
-        }
-        .btn:hover { background: var(--surface-hover); }
+    .sidebar-brand {
+      padding: 0 20px 28px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .sidebar-brand .logo {
+      font-size: 1.5rem;
+      margin-bottom: 6px;
+    }
+    .sidebar-brand h1 {
+      font-size: 0.95rem;
+      font-weight: 800;
+      background: var(--grad-primary);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1.3;
+    }
+    .sidebar-brand p {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
 
-        /* ── Metrics Grid ── */
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 20px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: var(--text-dim);
+      text-decoration: none;
+      border-radius: 0;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      border-left: 2px solid transparent;
+    }
+    .nav-item:hover,
+    .nav-item.active {
+      color: var(--text);
+      background: rgba(56,189,248,0.06);
+      border-left-color: var(--primary);
+    }
+    .nav-item i { width: 18px; text-align: center; font-size: 0.85rem; }
 
-        .metric-card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 1.25rem;
-            text-align: left;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-        }
+    .nav-section-label {
+      padding: 18px 20px 6px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-muted);
+    }
 
-        .metric-card h3 {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 0.5rem;
-        }
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 20px;
+      border-top: 1px solid var(--border);
+    }
+    .sidebar-footer a {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: var(--danger);
+      text-decoration: none;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(248,113,113,0.2);
+      background: rgba(248,113,113,0.06);
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .sidebar-footer a:hover { background: rgba(248,113,113,0.12); border-color: rgba(248,113,113,0.4); }
 
-        .metric-card .value {
-            font-size: clamp(1.8rem, 5vw, 2.5rem);
-            font-weight: 700;
-            color: var(--primary);
-        }
-        .metric-card .value.success { color: var(--success); }
+    /* ── Main Content ── */
+    .main {
+      margin-left: 240px;
+      flex: 1;
+      padding: 32px;
+      animation: mainFade 0.7s ease 0.3s both;
+    }
+    @keyframes mainFade {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
 
-        /* ── Dashboard Layout ── */
-        .dashboard-layout {
-            display: grid;
-            grid-template-columns: 2fr 1.5fr;
-            gap: 1.25rem;
-        }
+    /* ── Page Header ── */
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 28px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .page-header h2 {
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: var(--grad-primary);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .page-header p {
+      font-size: 0.83rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
 
-        .panel {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 1.25rem;
-        }
+    .header-actions { display: flex; gap: 10px; align-items: center; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 18px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      font-family: inherit;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .btn:hover { background: var(--surface-hover); border-color: rgba(255,255,255,0.14); }
+    .btn-primary {
+      background: var(--grad-primary);
+      border-color: transparent;
+      color: #000;
+    }
+    .btn-primary:hover { box-shadow: 0 6px 20px rgba(56,189,248,0.35); border-color: transparent; }
 
-        .panel h2 {
-            font-size: 1.1rem;
-            margin-bottom: 1rem;
-            color: var(--text);
-        }
+    .btn-danger-soft {
+      background: rgba(248,113,113,0.1);
+      border-color: rgba(248,113,113,0.25);
+      color: var(--danger);
+    }
+    .btn-danger-soft:hover { background: rgba(248,113,113,0.2); }
 
-        /* ── Log Table ── */
-        .table-wrapper {
-            overflow-x: auto;       /* Horizontal scroll on mobile */
-            -webkit-overflow-scrolling: touch;
-        }
+    /* ── Metric Cards ── */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
 
-        .log-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.85rem;
-            min-width: 400px;       /* Prevent squash below 400px */
-        }
+    .metric-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 22px;
+      transition: all 0.3s ease;
+      animation: metricSlideIn 0.5s ease both;
+      position: relative;
+      overflow: hidden;
+    }
+    .metric-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--card-accent, var(--grad-primary));
+      opacity: 0.6;
+    }
+    .metric-card:nth-child(1)::before { --card-accent: linear-gradient(90deg,#38bdf8,#0ea5e9); }
+    .metric-card:nth-child(2)::before { --card-accent: linear-gradient(90deg,#818cf8,#6366f1); }
+    .metric-card:nth-child(3)::before { --card-accent: linear-gradient(90deg,#34d399,#10b981); }
 
-        .log-table th, .log-table td {
-            padding: 0.65rem 0.75rem;
-            text-align: left;
-            border-bottom: 1px solid var(--border);
-        }
+    .metric-card:nth-child(1) { animation-delay: 0.1s; }
+    .metric-card:nth-child(2) { animation-delay: 0.2s; }
+    .metric-card:nth-child(3) { animation-delay: 0.3s; }
 
-        .log-table th { color: var(--text-muted); font-weight: 600; }
-        .log-table tr:hover { background: var(--surface-hover); }
+    @keyframes metricSlideIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
 
-        .btn-sm {
-            padding: 4px 10px;
-            font-size: 0.75rem;
-            border-radius: 6px;
-            cursor: pointer;
-            border: 1px solid var(--border);
-            background: var(--bg);
-            color: var(--text);
-            transition: 0.2s;
-        }
-        .btn-delete { color: #ef4444; border-color: rgba(239, 68, 68, 0.3); }
-        .btn-delete:hover { background: #ef4444; color: #fff; }
-        .btn-block { color: #f59e0b; border-color: rgba(245, 158, 11, 0.3); }
-        .btn-block:hover { background: #f59e0b; color: #fff; }
+    .metric-card:hover {
+      border-color: var(--border-glow);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.3), 0 0 20px rgba(56,189,248,0.05);
+      transform: translateY(-3px);
+    }
 
-        .badge {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 0.72rem;
-            font-weight: 700;
-            background: rgba(99, 102, 241, 0.15);
-            color: var(--primary);
-            white-space: nowrap;
-        }
+    .metric-card .label {
+      font-size: 0.73rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
 
-        /* ── Tablet (≤ 900px) ── */
-        @media (max-width: 900px) {
-            .dashboard-layout {
-                grid-template-columns: 1fr;
-            }
-        }
+    .metric-card .value {
+      font-size: clamp(2rem, 5vw, 2.8rem);
+      font-weight: 800;
+      color: var(--primary);
+      line-height: 1;
+      letter-spacing: -1px;
+    }
+    .metric-card .value.users   { color: var(--primary); }
+    .metric-card .value.trips   { color: var(--accent); }
+    .metric-card .value.traffic { color: var(--success); }
 
-        /* ── Mobile (≤ 600px) ── */
-        @media (max-width: 600px) {
-            body { padding: 1rem; }
+    .metric-card .trend {
+      margin-top: 8px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
 
-            .metrics-grid {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 0.75rem;
-            }
+    /* ── Panels ── */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 22px;
+      animation: panelFade 0.6s ease both;
+    }
+    @keyframes panelFade {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
 
-            .metric-card { padding: 1rem; }
+    .panel h2 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .panel h2 i { color: var(--primary); }
 
-            .panel { padding: 1rem; }
+    /* ── Grid Layout ── */
+    .dashboard-layout {
+      display: grid;
+      grid-template-columns: 2fr 1.5fr;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+    .full-panel { margin-bottom: 18px; }
 
-            .panel-logs {
-                max-height: 320px;
-                overflow-y: auto;
-            }
-        }
+    /* ── Data Table ── */
+    .table-wrapper {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
 
-        /* ── Very small (≤ 380px) ── */
-        @media (max-width: 380px) {
-            .metrics-grid { grid-template-columns: 1fr; }
-        }
+    .log-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+      min-width: 380px;
+    }
+    .log-table th, .log-table td {
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .log-table th {
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: rgba(255,255,255,0.02);
+    }
+    .log-table tr:hover td { background: var(--surface-hover); }
+    .log-table td { color: var(--text); }
 
-        /* 🔐 Secret Vault Styling */
-        .panel-secret {
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            background: linear-gradient(145deg, rgba(20, 20, 20, 0.9), rgba(30, 10, 10, 0.9));
-            box-shadow: 0 0 20px rgba(239, 68, 68, 0.1);
-        }
-        .panel-secret h2 { color: #f87171; text-shadow: 0 0 10px rgba(239,68,68,0.3); }
-        .secret-value {
-            font-family: 'JetBrains Mono', 'Fira Code', monospace;
-            color: #fca5a5;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            background: rgba(239, 68, 68, 0.1);
-            padding: 2px 8px;
-            border-radius: 4px;
-            border: 1px solid rgba(239,68,68,0.1);
-        }
-        .warning-banner {
-            background: rgba(239, 68, 68, 0.1);
-            color: #f87171;
-            padding: 10px;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            margin-bottom: 1.5rem;
-            border: 1px dashed rgba(239, 68, 68, 0.3);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-    </style>
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      border-radius: 99px;
+      font-size: 0.71rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .badge-primary { background: rgba(56,189,248,0.12); color: var(--primary); border: 1px solid rgba(56,189,248,0.2); }
+    .badge-success { background: rgba(52,211,153,0.12); color: var(--success); border: 1px solid rgba(52,211,153,0.2); }
+    .badge-danger  { background: rgba(248,113,113,0.12); color: var(--danger);  border: 1px solid rgba(248,113,113,0.2); }
+    .badge-muted   { background: rgba(100,116,139,0.12); color: var(--text-muted); border: 1px solid rgba(100,116,139,0.2); }
+
+    /* ── Inline Action Buttons ── */
+    .btn-sm {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .btn-delete { color: var(--danger); border-color: rgba(248,113,113,0.25); background: rgba(248,113,113,0.06); }
+    .btn-delete:hover { background: rgba(248,113,113,0.18); border-color: var(--danger); }
+    .btn-block  { color: var(--warning); border-color: rgba(251,191,36,0.25); background: rgba(251,191,36,0.06); }
+    .btn-block:hover { background: rgba(251,191,36,0.18); border-color: var(--warning); }
+
+    /* ── Activity Feed Log ── */
+    .panel-logs { max-height: 420px; overflow-y: auto; }
+
+    /* ── Responsive ── */
+    @media (max-width: 1024px) {
+      .dashboard-layout { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .main { margin-left: 0; padding: 20px; }
+      .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 480px) {
+      .metrics-grid { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
 
-    <div class="header">
-        <div class="header-left">
-            <h1>⚙️ Admin Analytics &amp; Telemetry</h1>
-            <p>Smart Budget Travel Planner — Command Center</p>
-        </div>
-        <div style="display:flex; gap:10px;">
-            <a href="/admin/secret-vault" class="btn" style="background:#f87171; color:#000; border:none;">🔑 Access Secret Vault</a>
-            <a href="/logout" class="btn">🚪 Logout</a>
-        </div>
-    </div>
+  <!-- Animated accent -->
+  <div class="top-accent"></div>
 
-    <div class="metrics-grid">
+  <div class="layout">
+
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="logo">⚙️</div>
+        <h1>Admin Panel</h1>
+        <p>Smart Budget Travel</p>
+      </div>
+
+      <p class="nav-section-label">Overview</p>
+      <a class="nav-item active" href="#overview">
+        <i class="fas fa-chart-line"></i> Dashboard
+      </a>
+      <a class="nav-item" href="#users">
+        <i class="fas fa-users"></i> User Management
+      </a>
+      <a class="nav-item" href="#logs">
+        <i class="fas fa-list-alt"></i> Activity Logs
+      </a>
+
+      <p class="nav-section-label">Security</p>
+      <a class="nav-item" href="/admin/secret-vault" style="color:#f87171;">
+        <i class="fas fa-key"></i> Secret Vault
+      </a>
+
+      <div class="sidebar-footer">
+        <a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
+      </div>
+    </aside>
+
+    <!-- ── Main Content ── -->
+    <main class="main" id="overview">
+
+      <!-- Header -->
+      <div class="page-header">
+        <div>
+          <h2>📊 Analytics &amp; Telemetry</h2>
+          <p>Smart Budget Travel Planner — Command Center · Real-time dashboard</p>
+        </div>
+        <div class="header-actions">
+          <a href="/admin/secret-vault" class="btn btn-danger-soft">
+            <i class="fas fa-key"></i> Secret Vault
+          </a>
+          <a href="/logout" class="btn">
+            <i class="fas fa-sign-out-alt"></i> Logout
+          </a>
+        </div>
+      </div>
+
+      <!-- Metrics -->
+      <div class="metrics-grid">
         <div class="metric-card">
-            <h3>Total Registered Users</h3>
-            <p class="value" id="val-users">--</p>
+          <div class="label"><i class="fas fa-users"></i> Total Registered Users</div>
+          <div class="value users" id="val-users">--</div>
+          <div class="trend">All time registrations</div>
         </div>
         <div class="metric-card">
-            <h3>Total Database Trips</h3>
-            <p class="value" id="val-trips">--</p>
+          <div class="label"><i class="fas fa-suitcase-rolling"></i> Total Database Trips</div>
+          <div class="value trips" id="val-trips">--</div>
+          <div class="trend">Across all users</div>
         </div>
         <div class="metric-card">
-            <h3>Live Traffic (Today)</h3>
-            <p class="value success" id="val-traffic">--</p>
+          <div class="label"><i class="fas fa-bolt"></i> Today's Traffic</div>
+          <div class="value traffic" id="val-traffic">--</div>
+          <div class="trend">Platform requests today</div>
         </div>
-    </div>
+      </div>
 
-    <div class="dashboard-layout">
-        <!-- Chart Section -->
-        <div class="panel">
-            <h2>📈 Real-Time Traffic Overview</h2>
-            <canvas id="trafficChart" height="200"></canvas>
+      <!-- Chart + Logs -->
+      <div class="dashboard-layout">
+        <div class="panel" style="animation-delay:0.35s;">
+          <h2><i class="fas fa-chart-area"></i> Real-Time Traffic Overview</h2>
+          <canvas id="trafficChart" height="200"></canvas>
         </div>
 
-        <!-- Logs Section -->
-        <div class="panel panel-logs" style="max-height: 420px; overflow-y: auto;">
-            <h2>📋 Recent Activity Feed</h2>
-            <div class="table-wrapper">
-                <table class="log-table">
-                    <thead>
-                        <tr>
-                            <th>Action</th>
-                            <th>User / IP</th>
-                            <th>Endpoint</th>
-                        </tr>
-                    </thead>
-                    <tbody id="logs-body">
-                        <!-- JS population -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- User Management Section -->
-    <div class="panel" style="margin-top: 1.5rem;">
-        <h2>👥 User Management & Credentials</h2>
-        <div class="table-wrapper">
+        <div class="panel panel-logs" id="logs" style="animation-delay:0.45s;">
+          <h2><i class="fas fa-stream"></i> Recent Activity Feed</h2>
+          <div class="table-wrapper">
             <table class="log-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>User Details</th>
-                        <th>Password (Hash)</th>
-                        <th>Role</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="users-body">
-                    <!-- JS population -->
-                </tbody>
+              <thead>
+                <tr>
+                  <th>Action</th>
+                  <th>User / IP</th>
+                  <th>Endpoint</th>
+                </tr>
+              </thead>
+              <tbody id="logs-body">
+                <tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:24px;">Loading activity…</td></tr>
+              </tbody>
             </table>
+          </div>
         </div>
-    </div>
+      </div>
 
-    </div>
+      <!-- User Management -->
+      <div class="panel full-panel" id="users" style="animation-delay:0.55s;">
+        <h2><i class="fas fa-users-cog"></i> User Management &amp; Credentials</h2>
+        <div class="table-wrapper">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>User Details</th>
+                <th>Password Hash</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="users-body">
+              <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px;">Loading users…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-    <script>
-        async function fetchAdminData() {
-            try {
-                const res = await fetch('/api/admin-stats');
-                const data = await res.json();
+    </main>
+  </div>
 
-                // Populate Metrics
-                document.getElementById('val-users').innerText   = data.total_users;
-                document.getElementById('val-trips').innerText   = data.total_trips;
-                document.getElementById('val-traffic').innerText = data.today_traffic;
+  <script>
+    async function fetchAdminData() {
+      try {
+        const res  = await fetch('/api/admin-stats');
+        const data = await res.json();
 
-                // Populate Logs
-                const tbody = document.getElementById('logs-body');
-                tbody.innerHTML = '';
-                data.recent_logs.forEach(log => {
-                    const tr = document.createElement('tr');
-                    let userStr = log[2] ? `<div>${log[2]}</div>` : '';
-                    userStr += `<div style="font-size:0.72rem;color:#9ca3af">${log[3]}</div>`;
-                    tr.innerHTML = `
-                        <td><span class="badge">${log[5]}</span></td>
-                        <td>${userStr}</td>
-                        <td style="color:#9ca3af;font-size:0.8rem;">${log[4]}</td>
-                    `;
-                    tbody.appendChild(tr);
-                });
+        // Metrics (animate count-up)
+        animateValue('val-users',   0, data.total_users,   900);
+        animateValue('val-trips',   0, data.total_trips,   1000);
+        animateValue('val-traffic', 0, data.today_traffic, 800);
 
-                // Populate Users Table
-                const userTbody = document.getElementById('users-body');
-                userTbody.innerHTML = '';
-
-                data.all_users.forEach(u => {
-                    // u = [id, name, email, password, is_admin, is_blocked, plain_password]
-                    const tr = document.createElement('tr');
-                    const isAdmin = u[4];
-                    const isBlocked = u[5];
-                    const plainPass = u[6] || '<span style="color:#4b5563;font-style:italic;">Hashed (Legacy)</span>';
-                    
-                    tr.innerHTML = `
-                        <td>#${u[0]}</td>
-                        <td>
-                            <div style="font-weight:600;">${u[1]}</div>
-                            <div style="font-size:0.75rem;color:#9ca3af;">${u[2]}</div>
-                        </td>
-                        <td>
-                            <div style="font-family:monospace;font-size:0.7rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;color:#6366f1;">
-                                ${u[3]}
-                            </div>
-                        </td>
-                        <td><span class="badge" style="${isAdmin ? 'background:rgba(16,185,129,0.1);color:#10b981;' : ''}">${isAdmin ? 'Admin' : 'User'}</span></td>
-                        <td><span class="badge" style="${isBlocked ? 'background:rgba(239,68,68,0.1);color:#ef4444;' : 'background:rgba(16,185,129,0.1);color:#10b981;'}">
-                            ${isBlocked ? 'Blocked' : 'Active'}</span>
-                        </td>
-                        <td>
-                            <div style="display:flex;gap:5px;">
-                                <button class="btn-sm btn-block" onclick="toggleBlock(${u[0]}, ${!isBlocked})">
-                                    ${isBlocked ? 'Unblock' : 'Block'}
-                                </button>
-                                <button class="btn-sm btn-delete" onclick="deleteUser(${u[0]})">Delete</button>
-                            </div>
-                        </td>
-                    `;
-                    userTbody.appendChild(tr);
-
-                    // Populate Secret Vault
-                    const sTr = document.createElement('tr');
-                    userTbody.appendChild(tr);
-                });
-
-                // Traffic Chart
-                const ctx = document.getElementById('trafficChart').getContext('2d');
-                new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: ['6d ago','5d ago','4d ago','3d ago','2d ago','Yesterday','Today'],
-                        datasets: [{
-                            label: 'Platform Requests',
-                            data: [12, 19, 15, 25, 22, 30, data.today_traffic],
-                            borderColor: '#6366f1',
-                            backgroundColor: 'rgba(99,102,241,0.1)',
-                            borderWidth: 2,
-                            fill: true,
-                            tension: 0.4
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            y: { grid: { color: '#333' }, ticks: { color: '#9ca3af', maxTicksLimit: 5 } },
-                            x: { grid: { color: '#333' }, ticks: { color: '#9ca3af' } }
-                        }
-                    }
-                });
-
-            } catch(e) { console.error('Admin Fetch Error', e); }
+        // Activity Logs
+        const tbody = document.getElementById('logs-body');
+        tbody.innerHTML = '';
+        if (!data.recent_logs || !data.recent_logs.length) {
+          tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:24px;">No recent activity</td></tr>';
+        } else {
+          data.recent_logs.forEach(log => {
+            const tr = document.createElement('tr');
+            let userStr = log[2] ? `<div style="font-weight:600;">${log[2]}</div>` : '';
+            userStr += `<div style="font-size:0.72rem;color:var(--text-muted);">${log[3]}</div>`;
+            tr.innerHTML = `
+              <td><span class="badge badge-primary">${log[5]}</span></td>
+              <td>${userStr}</td>
+              <td style="color:var(--text-muted);font-size:0.8rem;">${log[4]}</td>
+            `;
+            tbody.appendChild(tr);
+          });
         }
 
-        async function toggleBlock(userId, blockStatus) {
-            if(!confirm(`Are you sure you want to ${blockStatus ? 'BLOCK' : 'UNBLOCK'} this user?`)) return;
-            try {
-                const res = await fetch('/api/admin/toggle-block', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({user_id: userId, is_blocked: blockStatus})
-                });
-                const data = await res.json();
-                if(data.status === 'success') {
-                    fetchAdminData();
-                } else {
-                    alert(data.message || 'Action failed');
-                }
-            } catch(e) { console.error(e); }
-        }
+        // Users Table
+        const userTbody = document.getElementById('users-body');
+        userTbody.innerHTML = '';
+        data.all_users.forEach(u => {
+          const isAdmin   = u[4];
+          const isBlocked = u[5];
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td style="color:var(--text-muted);font-size:0.8rem;">#${u[0]}</td>
+            <td>
+              <div style="font-weight:600;font-size:0.92rem;">${u[1]}</div>
+              <div style="font-size:0.75rem;color:var(--text-muted);">${u[2]}</div>
+            </td>
+            <td>
+              <div style="font-family:monospace;font-size:0.68rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--accent);">
+                ${u[3]}
+              </div>
+            </td>
+            <td>
+              <span class="badge ${isAdmin ? 'badge-success' : 'badge-muted'}">${isAdmin ? '⚙️ Admin' : '👤 User'}</span>
+            </td>
+            <td>
+              <span class="badge ${isBlocked ? 'badge-danger' : 'badge-success'}">${isBlocked ? '🚫 Blocked' : '✅ Active'}</span>
+            </td>
+            <td>
+              <div style="display:flex;gap:6px;">
+                <button class="btn-sm btn-block" onclick="toggleBlock(${u[0]},${!isBlocked})">
+                  <i class="fas fa-${isBlocked ? 'unlock' : 'ban'}"></i> ${isBlocked ? 'Unblock' : 'Block'}
+                </button>
+                <button class="btn-sm btn-delete" onclick="deleteUser(${u[0]})">
+                  <i class="fas fa-trash"></i> Delete
+                </button>
+              </div>
+            </td>
+          `;
+          userTbody.appendChild(tr);
+        });
 
-        async function deleteUser(userId) {
-            if(!confirm('🚨 WARNING: This will permanently delete the user and all their data. Proceed?')) return;
-            try {
-                const res = await fetch('/api/admin/delete-user', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({user_id: userId})
-                });
-                const data = await res.json();
-                if(data.status === 'success') {
-                    fetchAdminData();
-                } else {
-                    alert(data.message || 'Delete failed');
-                }
-            } catch(e) { console.error(e); }
-        }
+        // Chart
+        const ctx = document.getElementById('trafficChart').getContext('2d');
+        new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: ['6d ago','5d ago','4d ago','3d ago','2d ago','Yesterday','Today'],
+            datasets: [{
+              label: 'Platform Requests',
+              data: [12, 19, 15, 25, 22, 30, data.today_traffic],
+              borderColor: '#38bdf8',
+              backgroundColor: 'rgba(56,189,248,0.08)',
+              borderWidth: 2,
+              pointBackgroundColor: '#38bdf8',
+              pointBorderColor: '#050a14',
+              pointBorderWidth: 2,
+              pointRadius: 5,
+              fill: true,
+              tension: 0.45
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                backgroundColor: 'rgba(13,21,38,0.95)',
+                borderColor: 'rgba(56,189,248,0.3)',
+                borderWidth: 1,
+                titleColor: '#38bdf8',
+                bodyColor: '#f1f5f9',
+                padding: 12,
+                cornerRadius: 10,
+              }
+            },
+            scales: {
+              y: {
+                grid: { color: 'rgba(255,255,255,0.04)' },
+                ticks: { color: '#64748b', maxTicksLimit: 5, font: { size: 11 } },
+                border: { color: 'rgba(255,255,255,0.07)' }
+              },
+              x: {
+                grid: { color: 'rgba(255,255,255,0.04)' },
+                ticks: { color: '#64748b', font: { size: 11 } },
+                border: { color: 'rgba(255,255,255,0.07)' }
+              }
+            }
+          }
+        });
 
-        window.onload = fetchAdminData;
-    </script>
+      } catch(e) { console.error('Admin Fetch Error', e); }
+    }
+
+    // Animate counter
+    function animateValue(id, start, end, dur) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const startTime = performance.now();
+      function update(now) {
+        const t = Math.min((now - startTime) / dur, 1);
+        const eased = 1 - Math.pow(1 - t, 3);
+        el.textContent = Math.round(start + (end - start) * eased);
+        if (t < 1) requestAnimationFrame(update);
+      }
+      requestAnimationFrame(update);
+    }
+
+    async function toggleBlock(userId, blockStatus) {
+      if (!confirm(`Are you sure you want to ${blockStatus ? 'BLOCK' : 'UNBLOCK'} this user?`)) return;
+      try {
+        const res  = await fetch('/api/admin/toggle-block', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: userId, is_blocked: blockStatus })
+        });
+        const data = await res.json();
+        if (data.status === 'success') fetchAdminData();
+        else alert(data.message || 'Action failed');
+      } catch(e) { console.error(e); }
+    }
+
+    async function deleteUser(userId) {
+      if (!confirm('🚨 WARNING: This will permanently delete the user and all their data. Proceed?')) return;
+      try {
+        const res  = await fetch('/api/admin/delete-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: userId })
+        });
+        const data = await res.json();
+        if (data.status === 'success') fetchAdminData();
+        else alert(data.message || 'Delete failed');
+      } catch(e) { console.error(e); }
+    }
+
+    window.onload = fetchAdminData;
+  </script>
 </body>
 </html>

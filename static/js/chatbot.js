@@ -215,7 +215,7 @@ function getLocalFallback(input) {
     if (m.includes('safe') || m.includes('safety')) {
         return '🛡️ Keep copies of IDs, use only official transport, avoid unlit areas at night.';
     }
-    return 'I am your travel assistant. For emergencies call 112 (India) or 911 (international). Ask me about safety, budget, transport or destinations!';
+    return 'I am your travel assistant for India trips. For emergencies call 112 (universal) or Police: 100, Ambulance: 108. Ask me about safety, budget, transport or Indian destinations!';
 }
 
 /**

@@ -1,58 +1,216 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign Up - Smart Budget Travel Planner</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign Up — Smart Budget Travel Planner</title>
+  <meta name="description" content="Create your Smart Budget Travel Planner account to start planning budget-friendly trips.">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .signup-page {
+      background:
+        radial-gradient(ellipse 80% 60% at 70% 20%, rgba(129,140,248,0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 20% 80%, rgba(56,189,248,0.10) 0%, transparent 60%),
+        #050a14;
+    }
+
+    #particles-canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .brand-mark {
+      font-size: 3.2rem;
+      margin-bottom: 14px;
+      display: block;
+      animation: brandFloat 4s ease-in-out infinite;
+    }
+
+    .page-loader {
+      position: fixed;
+      top: 0; left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #818cf8, #38bdf8, #818cf8);
+      background-size: 200% 100%;
+      animation: loaderBar 1.2s ease forwards, loaderShimmer 1.5s linear 0.3s infinite;
+      z-index: 9999;
+      width: 0%;
+    }
+
+    @keyframes loaderBar     { to { width: 100%; } }
+    @keyframes loaderShimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+    @keyframes brandFloat    { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+    /* Step indicator */
+    .strength-steps {
+      display: flex;
+      gap: 4px;
+      margin-top: -10px;
+      margin-bottom: 14px;
+    }
+    .strength-step {
+      flex: 1;
+      height: 3px;
+      border-radius: 99px;
+      background: rgba(255,255,255,0.1);
+      transition: background 0.3s ease;
+    }
+  </style>
 </head>
 <body class="signup-page">
 
-    <div class="overlay">
-        <div class="auth-container">
-            <div class="left-panel">
-                <div class="overlay-text">
-                    <h1>Join Smart Budget Travel Planner</h1>
-                    <p>Sign up to start planning your journeys with our smart tools.</p>
-                </div>
-            </div>
+  <div class="page-loader"></div>
+  <canvas id="particles-canvas"></canvas>
 
-            <div class="right-panel">
-                <h2>Create Account</h2>
-                <form id="signupForm">
-                    <div class="input-group">
-                        <i class="fas fa-user"></i>
-                        <input type="text" id="name" placeholder="Full Name" required>
-                    </div>
-                    <div class="input-group">
-                        <i class="fas fa-envelope"></i>
-                        <input type="email" id="email" placeholder="Email" required>
-                    </div>
-                    <div class="input-group">
-                        <i class="fas fa-lock"></i>
-                        <input type="password" id="password" placeholder="Password" required>
-                    </div>
-                    
-                    <div class="password-strength-container">
-                        <div id="password-strength-bar" class="password-strength-bar"></div>
-                    </div>
-                    <p id="password-feedback" class="password-feedback"></p>
+  <div class="overlay">
+    <div class="auth-container">
 
-                    <button type="submit" id="signupBtn">
-                        <span id="signupBtnText">Create Account</span>
-                        <div class="css-loader" id="signupLoader" style="display: none;"></div>
-                    </button>
-                    <p class="form-message" id="message" style="display:none;"></p>
-                </form>
-                <div class="switch">
-                    Already have an account? <a href="{{ url_for('login_page') }}">Login</a>
-                </div>
+      <!-- Left Panel -->
+      <div class="left-panel">
+        <div class="overlay-text">
+          <span class="brand-mark">🌍</span>
+          <h1>Start Your Journey</h1>
+          <p>Join thousands of smart travelers who plan budget-conscious adventures with AI-powered tools.</p>
+
+          <div style="margin-top:28px;display:flex;flex-direction:column;gap:12px;text-align:left;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <span style="width:36px;height:36px;background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.25);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">📊</span>
+              <div>
+                <div style="font-size:0.88rem;font-weight:600;color:#fff;">AI Budget Calculator</div>
+                <div style="font-size:0.78rem;color:rgba(241,245,249,0.5);">Smart estimates for every trip style</div>
+              </div>
             </div>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <span style="width:36px;height:36px;background:rgba(129,140,248,0.15);border:1px solid rgba(129,140,248,0.25);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">🗺️</span>
+              <div>
+                <div style="font-size:0.88rem;font-weight:600;color:#fff;">Live Route Tracking</div>
+                <div style="font-size:0.78rem;color:rgba(241,245,249,0.5);">Real-time location and ETA updates</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <span style="width:36px;height:36px;background:rgba(52,211,153,0.15);border:1px solid rgba(52,211,153,0.25);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">🤖</span>
+              <div>
+                <div style="font-size:0.88rem;font-weight:600;color:#fff;">AI Travel Assistant</div>
+                <div style="font-size:0.78rem;color:rgba(241,245,249,0.5);">Ask anything about your journey</div>
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
+
+      <!-- Right Form Panel -->
+      <div class="right-panel">
+        <div style="width:100%;max-width:360px;">
+          <div style="margin-bottom:28px;">
+            <h2 style="margin-bottom:6px;">Create Account</h2>
+            <p style="color:rgba(241,245,249,0.5);font-size:0.88rem;">Free forever · No credit card required</p>
+          </div>
+
+          <form id="signupForm">
+            <div class="input-group">
+              <i class="fas fa-user"></i>
+              <input type="text" id="name" placeholder="Full name" required autocomplete="name">
+            </div>
+            <div class="input-group">
+              <i class="fas fa-envelope"></i>
+              <input type="email" id="email" placeholder="Email address" required autocomplete="email">
+            </div>
+            <div class="input-group">
+              <i class="fas fa-lock"></i>
+              <input type="password" id="password" placeholder="Create password" required autocomplete="new-password">
+            </div>
+
+            <!-- Strength bar -->
+            <div class="password-strength-container">
+              <div id="password-strength-bar" class="password-strength-bar"></div>
+            </div>
+            <p id="password-feedback" class="password-feedback"></p>
+
+            <button type="submit" id="signupBtn" style="margin-bottom:0;">
+              <span id="signupBtnText">Create My Account &nbsp;→</span>
+              <div class="css-loader" id="signupLoader" style="display:none;border-top-color:#000;"></div>
+            </button>
+            <p class="form-message" id="message" style="display:none;"></p>
+          </form>
+
+          <div class="switch">
+            Already have an account? <a href="{{ url_for('login_page') }}">Sign in →</a>
+          </div>
+
+          <!-- Terms -->
+          <p style="text-align:center;font-size:0.74rem;color:rgba(241,245,249,0.3);margin-top:16px;line-height:1.5;">
+            By creating an account you agree to our<br>Terms of Service and Privacy Policy.
+          </p>
+        </div>
+      </div>
+
     </div>
-    
-    <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+  <script>
+    (function() {
+      const canvas = document.getElementById('particles-canvas');
+      const ctx = canvas.getContext('2d');
+      let W, H, pts = [];
+
+      function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+      window.addEventListener('resize', resize);
+      resize();
+
+      const COLORS = ['#818cf8','#38bdf8','#a78bfa','#34d399'];
+      for (let i = 0; i < 50; i++) {
+        pts.push({
+          x: Math.random() * W, y: Math.random() * H,
+          r: Math.random() * 1.6 + 0.4,
+          vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3,
+          col: COLORS[Math.floor(Math.random() * COLORS.length)],
+          alpha: Math.random() * 0.35 + 0.12,
+        });
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, W, H);
+        pts.forEach(p => {
+          p.x += p.vx; p.y += p.vy;
+          if (p.x < 0 || p.x > W) p.vx *= -1;
+          if (p.y < 0 || p.y > H) p.vy *= -1;
+          ctx.globalAlpha = p.alpha;
+          ctx.fillStyle = p.col;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        for (let i = 0; i < pts.length; i++) {
+          for (let j = i + 1; j < pts.length; j++) {
+            const dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y;
+            const d = Math.sqrt(dx*dx+dy*dy);
+            if (d < 100) {
+              ctx.globalAlpha = (1 - d/100) * 0.1;
+              ctx.strokeStyle = '#818cf8';
+              ctx.lineWidth = 0.4;
+              ctx.beginPath();
+              ctx.moveTo(pts[i].x, pts[i].y);
+              ctx.lineTo(pts[j].x, pts[j].y);
+              ctx.stroke();
+            }
+          }
+        }
+        ctx.globalAlpha = 1;
+        requestAnimationFrame(draw);
+      }
+      draw();
+
+      setTimeout(() => {
+        const lb = document.querySelector('.page-loader');
+        if (lb) lb.style.opacity = '0';
+      }, 1200);
+    })();
+  </script>
 </body>
 </html>

@@ -1,54 +1,190 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Smart Budget Travel Planner</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — Smart Budget Travel Planner</title>
+  <meta name="description" content="Log in to Smart Budget Travel Planner — plan trips, track budgets, and explore the world smartly.">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    /* Login page specific: animated gradient background */
+    .login-page {
+      background:
+        radial-gradient(ellipse 80% 60% at 30% 20%, rgba(56,189,248,0.10) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 80%, rgba(129,140,248,0.10) 0%, transparent 60%),
+        #050a14;
+    }
+
+    /* Floating particles canvas */
+    #particles-canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* Brand logo text in left panel */
+    .brand-mark {
+      font-size: 3.5rem;
+      margin-bottom: 16px;
+      display: block;
+      animation: brandFloat 4s ease-in-out infinite;
+    }
+
+    /* Top loading bar animation */
+    .page-loader {
+      position: fixed;
+      top: 0; left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #38bdf8, #818cf8, #38bdf8);
+      background-size: 200% 100%;
+      animation: loaderBar 1.2s ease forwards, loaderShimmer 1.5s linear 0.3s infinite;
+      z-index: 9999;
+      width: 0%;
+    }
+
+    @keyframes loaderBar     { to { width: 100%; } }
+    @keyframes loaderShimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+    @keyframes brandFloat    { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+  </style>
 </head>
 <body class="login-page">
 
-    <div class="overlay">
-        <div class="auth-container">
-            <div class="left-panel">
-                <div class="overlay-text">
-                    <h1>Welcome Back!</h1>
-                    <p>Log in to access your travel plans and explore new adventures.</p>
-                </div>
-            </div>
+  <!-- Top loading bar -->
+  <div class="page-loader"></div>
 
-            <div class="right-panel">
-                <h2>Login</h2>
-                <form id="loginForm">
-                    <div class="input-group">
-                        <i class="fas fa-envelope"></i>
-                        <input type="email" id="email" placeholder="Email" required>
-                    </div>
-                    <div class="input-group">
-                        <i class="fas fa-lock"></i>
-                        <input type="password" id="password" placeholder="Password" required>
-                    </div>
-                    
-                    <div class="input-group remember-me-group">
-                        <input type="checkbox" id="remember">
-                        <label for="remember">Remember me</label>
-                    </div>
+  <!-- Particle canvas -->
+  <canvas id="particles-canvas"></canvas>
 
-                    <button type="submit" id="loginBtn">
-                        <span id="loginBtnText">Secure Login</span>
-                        <div class="css-loader" id="loginLoader" style="display: none;"></div>
-                    </button>
-                    <p class="form-message" id="message" style="display:none;"></p>
-                </form>
-                <div class="switch">
-                    Don't have an account? <a href="{{ url_for('signup_page') }}">Sign Up</a>
-                </div>
-            </div>
+  <div class="overlay">
+    <div class="auth-container">
+
+      <!-- Left Decorative Panel -->
+      <div class="left-panel">
+        <div class="overlay-text">
+          <span class="brand-mark">✈️</span>
+          <h1>Welcome Back!</h1>
+          <p>Log in to access your travel plans and explore new adventures around the world.</p>
+
+          <!-- Feature badges -->
+          <div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:24px;">
+            <span style="background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.25);border-radius:99px;padding:5px 14px;font-size:0.78rem;color:#38bdf8;">🗺️ Smart Planning</span>
+            <span style="background:rgba(129,140,248,0.12);border:1px solid rgba(129,140,248,0.25);border-radius:99px;padding:5px 14px;font-size:0.78rem;color:#818cf8;">💰 Budget AI</span>
+            <span style="background:rgba(52,211,153,0.12);border:1px solid rgba(52,211,153,0.25);border-radius:99px;padding:5px 14px;font-size:0.78rem;color:#34d399;">📍 Live Tracking</span>
+          </div>
         </div>
-    </div>
+      </div>
 
-    <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+      <!-- Right Form Panel -->
+      <div class="right-panel">
+        <div style="width:100%;max-width:360px;">
+          <div style="margin-bottom:32px;">
+            <h2 style="margin-bottom:6px;">Sign In</h2>
+            <p style="color:rgba(241,245,249,0.5);font-size:0.88rem;">Enter your credentials to continue</p>
+          </div>
+
+          <form id="loginForm">
+            <div class="input-group">
+              <i class="fas fa-envelope"></i>
+              <input type="email" id="email" placeholder="Email address" required autocomplete="email">
+            </div>
+            <div class="input-group">
+              <i class="fas fa-lock"></i>
+              <input type="password" id="password" placeholder="Password" required autocomplete="current-password">
+            </div>
+
+            <div class="remember-me-group">
+              <input type="checkbox" id="remember">
+              <label for="remember">Remember me</label>
+              <span style="flex:1;"></span>
+              <a href="#" style="color:rgba(56,189,248,0.8);font-size:0.82rem;text-decoration:none;" onclick="return false;">Forgot password?</a>
+            </div>
+
+            <button type="submit" id="loginBtn" style="margin-bottom:0;">
+              <span id="loginBtnText">Sign In Securely &nbsp;→</span>
+              <div class="css-loader" id="loginLoader" style="display:none;border-top-color:#000;"></div>
+            </button>
+            <p class="form-message" id="message" style="display:none;"></p>
+          </form>
+
+          <div class="switch">
+            Don't have an account? <a href="{{ url_for('signup_page') }}">Create one →</a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+  <script>
+    // Micro particle animation
+    (function() {
+      const canvas = document.getElementById('particles-canvas');
+      const ctx = canvas.getContext('2d');
+      let W, H, pts = [];
+
+      function resize() {
+        W = canvas.width  = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+      }
+      window.addEventListener('resize', resize);
+      resize();
+
+      const COLORS = ['#38bdf8','#818cf8','#34d399','#a78bfa'];
+      for (let i = 0; i < 55; i++) {
+        pts.push({
+          x: Math.random() * W, y: Math.random() * H,
+          r: Math.random() * 1.8 + 0.4,
+          vx: (Math.random() - 0.5) * 0.35,
+          vy: (Math.random() - 0.5) * 0.35,
+          col: COLORS[Math.floor(Math.random() * COLORS.length)],
+          alpha: Math.random() * 0.4 + 0.15,
+        });
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, W, H);
+        pts.forEach(p => {
+          p.x += p.vx; p.y += p.vy;
+          if (p.x < 0 || p.x > W) p.vx *= -1;
+          if (p.y < 0 || p.y > H) p.vy *= -1;
+          ctx.globalAlpha = p.alpha;
+          ctx.fillStyle = p.col;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        // draw connections
+        for (let i = 0; i < pts.length; i++) {
+          for (let j = i + 1; j < pts.length; j++) {
+            const dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y;
+            const d = Math.sqrt(dx*dx+dy*dy);
+            if (d < 110) {
+              ctx.globalAlpha = (1 - d/110) * 0.12;
+              ctx.strokeStyle = '#38bdf8';
+              ctx.lineWidth = 0.5;
+              ctx.beginPath();
+              ctx.moveTo(pts[i].x, pts[i].y);
+              ctx.lineTo(pts[j].x, pts[j].y);
+              ctx.stroke();
+            }
+          }
+        }
+        ctx.globalAlpha = 1;
+        requestAnimationFrame(draw);
+      }
+      draw();
+
+      // Remove loader bar
+      setTimeout(() => {
+        const lb = document.querySelector('.page-loader');
+        if (lb) lb.style.opacity = '0';
+      }, 1200);
+    })();
+  </script>
 </body>
 </html>

@@ -2,8 +2,10 @@ import json
 
 # All stay types the model knows about (must match train_models.py)
 VALID_STAY_TYPES = [
-    'hostel', 'friend_house', 'budget_hotel', '3star_hotel',
-    'resort', '5star_hotel', 'camping'
+    'hostel', 'camping', 'friend_house', 'home', 'family_stay',
+    'budget_hotel', '3star_hotel', 'resort', '5star_hotel',
+    'dharamshala', 'ashram', 'guesthouse', 'homestay', 'heritage_hotel',
+    'houseboat', 'treehouse', 'desert_camp', 'tent_resort'
 ]
 
 # All food types (must match train_models.py FOOD_DAILY_COST)
@@ -14,9 +16,14 @@ VALID_FOOD_TYPES = [
 
 STAY_NIGHTLY_BASE = {
     'hostel':        400,    'camping':       600,
-    'friend_house':  0,      'budget_hotel':  1200,
+    'friend_house':  0,      'home':          0,
+    'family_stay':   0,      'budget_hotel':  1200,
     '3star_hotel':   2800,   'resort':        5500,
-    '5star_hotel':   11000
+    '5star_hotel':   11000,  'dharamshala':   200,
+    'ashram':        300,    'guesthouse':    800,
+    'homestay':      1000,   'heritage_hotel': 3500,
+    'houseboat':     4000,   'treehouse':     2500,
+    'desert_camp':   1500,   'tent_resort':   2000
 }
 
 FOOD_DAILY_COST = {
@@ -30,6 +37,49 @@ TRANSPORT_DAILY_PP = {
     'mid-range': 700,   
     'mid':       700,
     'luxury':   2500,   
+}
+
+# Destination cost multipliers (relative to average Indian destination)
+DESTINATION_MULTIPLIERS = {
+    # Budget destinations (smaller cities, less touristy)
+    'budget': 0.8,
+    # Standard destinations (most Indian cities)
+    'standard': 1.0,
+    # Premium destinations (touristy, expensive areas)
+    'premium': 1.3,
+    # Luxury destinations (Goa, Kerala, hill stations)
+    'luxury': 1.6
+}
+
+# Map common destinations to cost categories
+DESTINATION_CATEGORIES = {
+    # Luxury destinations
+    'goa': 'luxury', 'kerala': 'luxury', 'shimla': 'luxury', 'manali': 'luxury', 
+    'darjeeling': 'luxury', 'ooty': 'luxury', 'kodaikanal': 'luxury', 'nainital': 'luxury',
+    'rishikesh': 'luxury', 'mussoorie': 'luxury', 'gangtok': 'luxury', 'coorg': 'luxury',
+    'andaman': 'luxury', 'nicobar': 'luxury', 'lakshadweep': 'luxury', 'diu': 'luxury',
+    'pondicherry': 'luxury', 'mahabaleshwar': 'luxury', 'lonavala': 'luxury', 'khandala': 'luxury',
+    
+    # Premium destinations  
+    'jaipur': 'premium', 'udaipur': 'premium', 'jodhpur': 'premium', 'jaisalmer': 'premium',
+    'agra': 'premium', 'varanasi': 'premium', 'khajuraho': 'premium', 'amritsar': 'premium',
+    'pondicherry': 'premium', 'mysore': 'premium', 'hampi': 'premium', 'badami': 'premium',
+    'alleppey': 'premium', 'munnar': 'premium', 'thekkady': 'premium', 'kochi': 'premium',
+    'hyderabad': 'premium', 'bangalore': 'premium', 'chennai': 'premium', 'pune': 'premium',
+    'ahmedabad': 'premium', 'surat': 'premium', 'vadodara': 'premium', 'rajkot': 'premium',
+    
+    # Standard destinations (default)
+    'delhi': 'standard', 'mumbai': 'standard', 'bangalore': 'standard', 'chennai': 'standard',
+    'kolkata': 'standard', 'hyderabad': 'standard', 'pune': 'standard', 'ahmedabad': 'standard',
+    'surat': 'standard', 'kanpur': 'standard', 'nagpur': 'standard', 'lucknow': 'standard',
+    'indore': 'standard', 'bhopal': 'standard', 'patna': 'standard', 'ranchi': 'standard',
+    'raipur': 'standard', 'bhubaneswar': 'standard', 'chandigarh': 'standard', 'dehradun': 'standard',
+    
+    # Budget destinations
+    'allahabad': 'budget', 'meerut': 'budget', 'faridabad': 'budget', 'ghaziabad': 'budget',
+    'noida': 'budget', 'gurgaon': 'budget', 'gwalior': 'budget', 'jabalpur': 'budget',
+    'vijayawada': 'budget', 'visakhapatnam': 'budget', 'coimbatore': 'budget', 'madurai': 'budget',
+    'tiruchirappalli': 'budget', 'salem': 'budget', 'tirunelveli': 'budget'
 }
 
 import pandas as pd
@@ -65,7 +115,7 @@ class HypercubeBudgetEngine:
 
     def predict(self, days, travel_style="mid", food_type="casual",
                 group_size=1, season="shoulder", booking="normal",
-                stay_type="budget_hotel"):
+                stay_type="budget_hotel", is_family=False, destination=""):
         if days <= 0:
             return 0.0
             
@@ -73,7 +123,7 @@ class HypercubeBudgetEngine:
 
         # Fallback dictionary matching aliases
         VALID_FOOD_TYPES = ['veg_thali', 'nonveg_thali', 'local_cuisine', 'dhaba', 'restaurant', 'hotel_buffet']
-        VALID_STAY_TYPES = ['hostel', 'camping', 'dharamshala', 'ashram', 'guesthouse', 'budget_hotel', 'homestay', 'heritage_hotel', '3star_hotel', 'resort', '5star_hotel', 'houseboat', 'treehouse', 'desert_camp', 'tent_resort']
+        VALID_STAY_TYPES = ['hostel', 'camping', 'dharamshala', 'ashram', 'guesthouse', 'budget_hotel', 'homestay', 'heritage_hotel', '3star_hotel', 'resort', '5star_hotel', 'houseboat', 'treehouse', 'desert_camp', 'tent_resort', 'friend_house', 'home', 'family_stay']
 
         style = travel_style.lower()
         if style not in ['budget', 'mid-range', 'mid', 'luxury']:
@@ -102,15 +152,25 @@ class HypercubeBudgetEngine:
                 'budget': 'budget_hotel', 'mid': '3star_hotel',
                 'luxury': '5star_hotel', 'hotel': 'budget_hotel',
                 'camp': 'camping', 'guesthouse': 'budget_hotel',
-                'homestay': 'budget_hotel', 'friend': 'friend_house'
+                'homestay': 'budget_hotel', 'friend': 'friend_house',
+                'home': 'home', 'family': 'family_stay'
             }
             st = _aliases.get(st, 'budget_hotel')
+
+        # Process destination for cost adjustment
+        dest_multiplier = 1.0  # Default multiplier
+        if destination:
+            dest_lower = destination.lower().strip()
+            # Extract city name (remove "India" or other suffixes)
+            dest_city = dest_lower.split(',')[0].strip()
+            dest_category = DESTINATION_CATEGORIES.get(dest_city, 'standard')
+            dest_multiplier = DESTINATION_MULTIPLIERS.get(dest_category, 1.0)
 
         # If pipeline not ready, return fallback math
         if not self.pipeline:
             self._load()
         if not self.pipeline:
-            return round(1500 * days * grp, 2)
+            return round(1500 * days * grp * dest_multiplier, 2)
 
         # Prepare DataFrame to match the training pipeline schema
         df = pd.DataFrame([{
@@ -125,6 +185,29 @@ class HypercubeBudgetEngine:
         
         # Real ML prediction (uses RandomForest + Pipeline logic)
         predicted_budget = float(self.pipeline.predict(df)[0])
+
+        # Apply destination cost multiplier
+        predicted_budget = predicted_budget * dest_multiplier
+
+        # ── SMART PRICING ADJUSTMENTS ──
+        
+        # 1. Family / Group Discount (Shared rooms, cabs, bulk food)
+        if grp >= 3:
+            # e.g., 3 people = 12.5% off, 4 = 15% off, max 30% off for 10+
+            discount_pct = min(0.30, 0.05 + (grp * 0.025))
+            predicted_budget = predicted_budget * (1.0 - discount_pct)
+            
+        # 2. Specific Family Discount (Requested by user)
+        if is_family:
+            # Additional 20% discount for family travel
+            predicted_budget = predicted_budget * 0.80
+
+        # 3. Staying with Family / Friends / Home (no room/food costs)
+        if st in ['friend_house', 'home', 'family_stay']:
+            # No room rent and no food costs (home-cooked meals).
+            # Only transport costs remain - estimate ~20% of total budget
+            predicted_budget = predicted_budget * 0.20
+
         return round(predicted_budget, 2)
 
 # Singleton instance
