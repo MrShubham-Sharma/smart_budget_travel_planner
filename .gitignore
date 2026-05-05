@@ -3,13 +3,15 @@ __pycache__/
 *.pyc
 *.pyo
 
-# Local database (never commit)
+# Local database (never commit — Railway uses PostgreSQL)
 users.db
 instance/
 
-# ML model grids (auto-generated on startup via train_models.py, but now committed since they are small RF models)
-# models/
+# Large ML grid files (auto-generated at build time by train_models.py)
 models/budget_grid.json
+models/eta_grid.json
+
+# Keep the trained RF model (budget_rf.pkl) committed — it's used at runtime
 
 # Environment variables (never commit secrets)
 .env
