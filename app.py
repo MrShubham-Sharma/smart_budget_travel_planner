@@ -1,4 +1,6 @@
-﻿import os
+import os
+import re
+import math
 import threading
 import requests
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
@@ -540,10 +542,8 @@ def predict_budget_api():
 
 
 # ------------------
-# 6. RUN APP
+# 6. ETA PREDICTION API
 # ------------------
-
-from ml_eta import eta_model
 
 @app.route('/api/predict-eta', methods=['POST'])
 def predict_eta_api():
@@ -2170,7 +2170,6 @@ def get_itinerary_generator():
         geo_res = requests.get(search_url, headers=headers, timeout=5).json()
         places = geo_res.get('query', {}).get('geosearch', [])
         
-        import re
         blacklist_pattern = re.compile(
             r'colony|residential|society|apartment|phase\s*\d|sector\s*\d|layout|cross|taluka|tehsil|mandal|district|'
             r'school|college|institute|university|academy', 
@@ -2200,7 +2199,6 @@ def get_itinerary_generator():
             })
             
         # 3. Mathematically chunk the places by the number of days!
-        import math
         chunk_size = math.ceil(len(places_data) / days) if days > 0 else len(places_data)
         itinerary = []
         
