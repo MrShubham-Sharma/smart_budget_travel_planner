@@ -76,22 +76,28 @@ def train_budget_ml_model():
         print("Scikit-Learn stack missing. Skipping ML budget training. Please install pandas, scikit-learn, joblib.")
         return
 
-    # Base Constants 
+    # Base Constants — Genuine Indian Travel Rates (per person/night)
     STAY_NIGHTLY_BASE = {
-        'hostel': 400, 'camping': 600, 'friend_house': 0, 'home': 0, 'family_stay': 0,
-        'budget_hotel': 1200, '3star_hotel': 2800, 'resort': 5500, '5star_hotel': 11000,
-        'dharamshala': 200, 'ashram': 300, 'guesthouse': 800, 'homestay': 1000,
-        'heritage_hotel': 3500, 'houseboat': 4000, 'treehouse': 2500, 'desert_camp': 1500, 'tent_resort': 2000
+        'hostel': 300,         'camping': 400,
+        'friend_house': 0,     'home': 0,          'family_stay': 0,
+        'budget_hotel': 700,   '3star_hotel': 1800, 'resort': 3500,
+        '5star_hotel': 6000,   'dharamshala': 150,  'ashram': 200,
+        'guesthouse': 500,     'homestay': 600,     'heritage_hotel': 2500,
+        'houseboat': 2500,     'treehouse': 1800,   'desert_camp': 1200,
+        'tent_resort': 1200
     }
     FOOD_DAILY_COST = {
-        'veg_thali': 300, 'nonveg_thali': 450, 'local_cuisine': 600, 
-        'dhaba': 250, 'restaurant': 900, 'hotel_buffet': 1600
+        'veg_thali': 150,   'nonveg_thali': 220,
+        'local_cuisine': 300, 'dhaba': 120,
+        'restaurant': 500,  'hotel_buffet': 900
     }
     TRANSPORT_DAILY_PP = {
-        'budget': 350, 'mid-range': 700, 'mid': 700, 'luxury': 2500
+        'budget': 200,   'mid-range': 450,
+        'mid': 450,      'luxury': 1200
     }
-    SEASON_MULT = {'peak': 1.4, 'off-peak': 0.8, 'shoulder': 1.0, 'holiday': 1.8}
-    BOOKING_MULT = {'last-minute': 1.3, 'normal': 1.0, 'advance': 0.8}
+    # Modest multipliers — last-minute adds only 10%, peak adds 20%
+    SEASON_MULT  = {'peak': 1.2, 'off-peak': 0.85, 'shoulder': 1.0, 'holiday': 1.35}
+    BOOKING_MULT = {'last-minute': 1.10, 'normal': 1.0, 'advance': 0.88}
 
     print("Generating 50,000 synthetic realistic travel records...")
     np.random.seed(42)
@@ -124,26 +130,13 @@ def train_budget_ml_model():
         food_daily_pp = FOOD_DAILY_COST[food_arr[i]] * s_mult
         transport_pp = TRANSPORT_DAILY_PP[style_arr[i]] * s_mult
 
-        # Calculate base total for group
+        # Calculate base total for group — NO discounts applied here.
+        # Discounts are applied ONCE at prediction time in ml_budget.py.
+        # This ensures the ML model learns clean base costs.
         base_total = (nightly_pp + food_daily_pp + transport_pp) * d * grp
-        
-        # Apply SAME discounts as in ml_budget.py predict method
-        
-        # 1. Group discount (for 3+ people)
-        if grp >= 3:
-            discount_pct = min(0.30, 0.05 + (grp * 0.025))  # 12.5% for 3, up to 30% for 10+
-            base_total = base_total * (1.0 - discount_pct)
-            
-        # 2. Family discount (if family travel)
-        if is_family_arr[i]:
-            base_total = base_total * 0.80  # 20% family discount
 
-        # 3. Stay type discount (for family/friend/home stays)
-        if stay_type in ['friend_house', 'home', 'family_stay']:
-            base_total = base_total * 0.20  # 80% discount, keep only transport
-        
-        # Inject random real-world price fluctuation (±15% noise)
-        noise = np.random.normal(0, 0.15) 
+        # Inject small real-world price fluctuation (±8% noise)
+        noise = np.random.normal(0, 0.08)
         final_budget = base_total * (1 + noise)
         y_budget.append(max(0, final_budget))  # Ensure non-negative
 

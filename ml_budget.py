@@ -14,41 +14,39 @@ VALID_FOOD_TYPES = [
     'dhaba', 'restaurant', 'hotel_buffet',
 ]
 
+# Genuine Indian travel base costs (per person, per night/day)
 STAY_NIGHTLY_BASE = {
-    'hostel':        400,    'camping':       600,
+    'hostel':        300,    'camping':       400,
     'friend_house':  0,      'home':          0,
-    'family_stay':   0,      'budget_hotel':  1200,
-    '3star_hotel':   2800,   'resort':        5500,
-    '5star_hotel':   11000,  'dharamshala':   200,
-    'ashram':        300,    'guesthouse':    800,
-    'homestay':      1000,   'heritage_hotel': 3500,
-    'houseboat':     4000,   'treehouse':     2500,
-    'desert_camp':   1500,   'tent_resort':   2000
+    'family_stay':   0,      'budget_hotel':  700,
+    '3star_hotel':   1800,   'resort':        3500,
+    '5star_hotel':   6000,   'dharamshala':   150,
+    'ashram':        200,    'guesthouse':    500,
+    'homestay':      600,    'heritage_hotel': 2500,
+    'houseboat':     2500,   'treehouse':     1800,
+    'desert_camp':   1200,   'tent_resort':   1200
 }
 
 FOOD_DAILY_COST = {
-    'veg_thali':    300,   'nonveg_thali': 450,
-    'local_cuisine':600,   'dhaba':        250,
-    'restaurant':   900,   'hotel_buffet': 1600,
+    'veg_thali':    150,   'nonveg_thali': 220,
+    'local_cuisine':300,   'dhaba':        120,
+    'restaurant':   500,   'hotel_buffet': 900,
+    'no_food':      0,
 }
 
 TRANSPORT_DAILY_PP = {
-    'budget':    350,   
-    'mid-range': 700,   
-    'mid':       700,
-    'luxury':   2500,   
+    'budget':    200,   
+    'mid-range': 450,   
+    'mid':       450,
+    'luxury':   1200,   
 }
 
-# Destination cost multipliers (relative to average Indian destination)
+# Destination cost multipliers — modest to avoid extreme inflation
 DESTINATION_MULTIPLIERS = {
-    # Budget destinations (smaller cities, less touristy)
-    'budget': 0.8,
-    # Standard destinations (most Indian cities)
+    'budget':   0.85,
     'standard': 1.0,
-    # Premium destinations (touristy, expensive areas)
-    'premium': 1.3,
-    # Luxury destinations (Goa, Kerala, hill stations)
-    'luxury': 1.6
+    'premium':  1.15,
+    'luxury':   1.30   # Reduced from 1.6 — prevents Goa trips showing 1 lakh+
 }
 
 # Map common destinations to cost categories
