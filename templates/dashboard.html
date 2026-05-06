@@ -541,6 +541,39 @@
 
   <!-- ═══════════ MODALS ═══════════ -->
 
+  <!-- ITINERARY SELECTOR MODAL -->
+  <div id="itinerarySelectorModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="itinerary-selector-title">
+    <div class="modal-content">
+      <span class="close" onclick="if(window.App && window.App.Itinerary) App.Itinerary.closeSelector()">&times;</span>
+      <h2 id="itinerary-selector-title" style="margin-bottom: 5px;">Build Trip Itinerary</h2>
+      <p style="opacity: 0.8; margin-top: 0;">Select a planned trip to auto-generate a day-by-day Wikipedia itinerary.</p>
+      
+      <ul id="itineraryTripsList" class="my-trips-list-container" style="max-height: 400px; overflow-y: auto; margin-top: 15px;">
+        <li>Loading your trips...</li>
+      </ul>
+      <div class="modal-buttons text-center">
+        <button type="button" onclick="if(window.App && window.App.Itinerary) App.Itinerary.closeSelector()" class="btn-close">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ITINERARY DISPLAY MODAL -->
+  <div id="itineraryDisplayModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="itinerary-title">
+    <div class="modal-content" style="max-width: 700px; background: #fff;">
+      <span class="close" onclick="if(window.App && window.App.Itinerary) App.Itinerary.closeDisplay()">&times;</span>
+      <h2 id="itinerary-title" style="margin-bottom: 5px;">Your Itinerary</h2>
+      <p style="color: #666; margin-top: 0; font-size: 0.9em;" id="itinerary-subtitle"></p>
+      
+      <div id="itinerary-container" style="margin-top: 20px; overflow-y: auto; max-height: 60vh; padding-right: 10px;">
+          <!-- Timeline content goes here -->
+      </div>
+      
+      <div class="modal-buttons text-center" style="margin-top: 20px;">
+        <button type="button" onclick="if(window.App && window.App.Itinerary) App.Itinerary.closeDisplay()" class="btn-close">Done</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Trip Planner Modal -->
   <div id="tripPlannerModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="planner-title">
     <div class="modal-content">
