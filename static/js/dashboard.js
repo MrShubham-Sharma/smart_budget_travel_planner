@@ -2108,6 +2108,45 @@ const App = {
       return str.replace(/[&<>"']/g, m => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
       }[m]));
+    },
+    showModal: function (htmlContent) {
+      if (App.Elements.budgetTrackerModal && App.Elements.budgetTrackerModalContent) {
+        App.Elements.budgetTrackerModalContent.innerHTML = htmlContent;
+        App.Elements.budgetTrackerModal.classList.add("show");
+      } else {
+        console.error("Modal elements not found");
+      }
+    },
+    closeModal: function() {
+      if (App.Elements.budgetTrackerModal) {
+        App.Elements.budgetTrackerModal.classList.remove('show');
+      }
+    },
+    getCurrentPosition: function() {
+        return new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+                reject(new Error("Geolocation not supported."));
+            }
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: true,
+                timeout: 5000,
+                maximumAge: 0
+            });
+        });
+    },
+    isNear: function(element, lat, lon) {
+        const R = 6371e3; // metres
+        const lat1 = element.lat * Math.PI/180;
+        const lat2 = lat * Math.PI/180;
+        const deltaLat = (lat-element.lat) * Math.PI/180;
+        const deltaLon = (lon-element.lon) * Math.PI/180;
+
+        const a = Math.sin(deltaLat/2) * Math.sin(deltaLat/2) +
+                  Math.cos(lat1) * Math.cos(lat2) *
+                  Math.sin(deltaLon/2) * Math.sin(deltaLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        const d = R * c; // in metres
+        return d < 11000; // 11km radius
     }
   }
 };
